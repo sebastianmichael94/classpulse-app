@@ -5,6 +5,8 @@ from django.shortcuts import get_object_or_404
 from .models import Course, QuizSession, Question, Response as StudentResponse
 from .serializers import QuizSessionSerializer, QuestionSerializer, ResponseSerializer
 from .utils import generate_unique_access_code
+from django.contrib.auth import authenticate, login
+from .serializers import RegisterSerializer, UserSerializer
 
 class StartSessionView(APIView):
     """
@@ -61,3 +63,39 @@ class SubmitResponseView(APIView):
             serializer.save()
             return APIResponse({"message": "Response submitted successfully!"}, status=status.HTTP_201_CREATED)
         return APIResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RegisterView(APIView):
+    """
+    Endpoint for new students and professors to create a ClassPulse account.
+    POST needs: {"username": "alex123", "email": "alex@ucmerced.edu", "password": "securepassword", "first_name": "Alex"}
+    """
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return APIResponse({
+                "message": "User registered successfully!",
+                "user": UserSerializer(user).data
+            }, status=status.HTTP_201_CREATED)
+        return APIResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class LoginView(APIView):
+    """
+    Endpoint to authenticate users.
+    POST needs: {"username": "alex123", "password": "securepassword"}
+    """
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        
+        user = authenticate(username=username, password=password)
+        
+        if user is not None:
+            # Successfully authenticated credentials
+            return APIResponse({
+                "message": "Login successful!",
+                "user": UserSerializer(user).data
+            }, status=status.HTTP_200_OK)
+            
+        return APIResponse({"error": "Invalid username or password."}, status=status.HTTP_401_UNAUTHORIZED)
