@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 
-export default function ProfessorDashboard({ activeQuiz, onPublish }) {
+export default function ProfessorDashboard({ activeQuiz, onPublish, questionCount, isPublishing, publishError }) {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const canvasRef = useRef(null);
 
@@ -66,8 +66,13 @@ export default function ProfessorDashboard({ activeQuiz, onPublish }) {
               <span className="block text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest mb-1">Active Quiz Matrix</span>
               <h3 className="text-lg font-bold text-slate-800">{activeQuiz?.title || "Untitled Component Spec"}</h3>
               <p className="text-sm text-slate-600 mt-1 italic">"{activeQuiz?.instructions || "No custom instructions supplied."}"</p>
-              <div className="mt-3 text-xs font-mono bg-slate-200 inline-block px-2.5 py-1 rounded-md text-slate-700 font-bold">
-                ⏱ Time Limit: {activeQuiz?.timeLimit || 15} Minutes
+              <div className="mt-3 flex flex-wrap gap-2">
+                <div className="text-xs font-mono bg-slate-200 inline-block px-2.5 py-1 rounded-md text-slate-700 font-bold">
+                  ⏱ Time Limit: {activeQuiz?.timeLimit || 15} Minutes
+                </div>
+                <div className="text-xs font-mono bg-indigo-50 inline-block px-2.5 py-1 rounded-md text-indigo-700 font-bold border border-indigo-200">
+                  🧩 {questionCount || 0} Compiled Questions
+                </div>
               </div>
             </div>
 
@@ -83,12 +88,16 @@ export default function ProfessorDashboard({ activeQuiz, onPublish }) {
 
             <div className="pt-4 border-t border-slate-100 flex justify-end">
               <button 
-                onClick={() => onPublish(activeQuiz)}
-                className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-mono font-bold py-3 px-8 rounded-lg shadow text-xs uppercase tracking-wider transition-colors"
+                onClick={() => onPublish()}
+                disabled={isPublishing}
+                className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400 text-white font-mono font-bold py-3 px-8 rounded-lg shadow text-xs uppercase tracking-wider transition-colors"
               >
-                🚀 Generate & Publish Quiz
+                {isPublishing ? 'Publishing…' : '🚀 Generate & Publish Quiz'}
               </button>
             </div>
+            {publishError ? (
+              <p className="mt-3 text-sm text-rose-600">{publishError}</p>
+            ) : null}
           </div>
 
           {/* QR & Code Matrix Right Column */}

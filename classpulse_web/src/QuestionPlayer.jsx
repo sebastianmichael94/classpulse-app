@@ -1,90 +1,198 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 
-export default function QuestionPlayer({ question, onSubmitAnswer }) {
-  const [mcqSelection, setMcqSelection] = useState(null);
-  const [textResponse, setTextResponse] = useState('');
+function MathText({ value }) {
+  if (typeof value !== 'string') return null;
 
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-    
-    // Construct a unified response payload structure
-    const payload = {
+  if (!value.includes('$$')) {
+    return <span>{value}</span>;
+  }
+
+  const parts = value.split('$$');
+  return (
+    <span>
+      {parts.map((part, index) => {
+        if (index % 2 === 1) {
+          try {
+            return (
+              <span
+                key={index}
+                className="inline-block align-middle mx-1"
+                dangerouslySetInnerHTML={{ __html: katex.renderToString(part, { throwOnError: false }) }}
+              />
+            );
+          } catch {
+            return <span key={index}>{part}</span>;
+          }
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </span>
+  );
+}
+
+export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
+  const [answers, setAnswers] = useState({});
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const questions = useMemo(() => quiz?.questions || [], [quiz]);
+  const currentQuestion = questions[currentIndex];
+
+  const updateAnswer = (questionId, value) => {
+    setAnswers((prev) => ({ ...prev, [questionId]: value }));
+  };
+
+  const handleNext = () => {
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex((prev) => prev - 1);
+    }
+  };
+
+  const handleSubmit = async () => {
+    const payloadAnswers = questions.map((question) => ({
       question_id: question.id,
-      type: question.type,
-      // Backend expects dynamic data inside answer_data based on our JSONField architecture
-      answer_data: question.type === 'MCQ' 
-        ? { selected_index: mcqSelection, text_value: question.options[mcqSelection] }
-        : { text_value: textResponse }
-    };
+      question_type: question.question_type,
+      answer: answers[question.id] ?? '',
+    }));
 
-    onSubmitAnswer(payload);
+    await onSubmit({
+      quiz: quiz.id,
+      student_name: studentName,
+      answers: payloadAnswers,
+    });
+  };
+
+  if (!currentQuestion) {
+    return <div className="text-slate-400">No questions available.</div>;
+  }
+
+  const renderInput = () => {
+    const value = answers[currentQuestion.id] ?? '';
+
+    switch (currentQuestion.question_type) {
+      case 'multiple_choice_question':
+        return (
+          <div className="space-y-3">
+            {(currentQuestion.interaction_data?.options || []).map((option, index) => (
+              <label key={index} className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-200">
+                <input
+                  type="radio"
+                  name={currentQuestion.id}
+                  checked={value === option}
+                  onChange={() => updateAnswer(currentQuestion.id, option)}
+                  className="h-4 w-4 border-slate-500 bg-slate-950 text-cyan-500"
+                />
+                <span><MathText value={option} /></span>
+              </label>
+            ))}
+          </div>
+        );
+      case 'true_false_question':
+        return (
+          <div className="space-y-3">
+            {['True', 'False'].map((option) => (
+              <label key={option} className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-200">
+                <input
+                  type="radio"
+                  name={currentQuestion.id}
+                  checked={value === option}
+                  onChange={() => updateAnswer(currentQuestion.id, option)}
+                  className="h-4 w-4 border-slate-500 bg-slate-950 text-cyan-500"
+                />
+                <span>{option}</span>
+              </label>
+            ))}
+          </div>
+        );
+      case 'essay_question':
+        return (
+          <textarea
+            rows={8}
+            value={value}
+            onChange={(e) => updateAnswer(currentQuestion.id, e.target.value)}
+            className="min-h-[220px] w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
+            placeholder="Write your response here..."
+          />
+        );
+      case 'formula_question':
+        return (
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4 text-sm text-slate-300">
+              <MathText value={currentQuestion.question_text} />
+            </div>
+            <input
+              type="number"
+              value={value}
+              onChange={(e) => updateAnswer(currentQuestion.id, e.target.value)}
+              className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
+              placeholder="Enter numeric response"
+            />
+          </div>
+        );
+      case 'one_word_question':
+      case 'fill_in_the_blank_question':
+        return (
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => updateAnswer(currentQuestion.id, e.target.value)}
+            className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
+            placeholder="Type your answer"
+          />
+        );
+      default:
+        return null;
+    }
   };
 
   return (
-    <div className="w-full max-w-2xl bg-[#111827] border border-[#1F2937] rounded-3xl p-6 md:p-10 shadow-xl">
-      {/* Component Metadata Tag */}
-      <div className="mb-4">
-        <span className="text-xs font-mono bg-indigo-950 text-indigo-300 border border-indigo-800 px-3 py-1 rounded-full uppercase tracking-wider">
-          {question.type === 'MCQ' ? 'Multiple Choice Question' : 'Short Answer Response'}
-        </span>
-      </div>
-
-      {/* Question Text */}
-      <h3 className="text-xl md:text-2xl font-semibold text-white leading-relaxed">
-        {question.text}
-      </h3>
-
-      {/* Conditionally Render Input Controls based on Question Type */}
-      <form onSubmit={handleFormSubmit} className="mt-8 space-y-5">
-        
-        {question.type === 'MCQ' && (
-          <div className="space-y-3">
-            {question.options?.map((option, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => setMcqSelection(index)}
-                className={`w-full text-left px-5 py-4 rounded-xl border transition-all duration-150 flex items-center ${
-                  mcqSelection === index
-                    ? 'bg-indigo-950 border-[#4FD1C5] text-white shadow-md'
-                    : 'bg-[#0A0E17] border-[#1F2937] text-slate-300 hover:border-slate-700'
-                }`}
-              >
-                <span className={`w-6 h-6 rounded-full border mr-4 flex items-center justify-center font-mono text-xs ${
-                  mcqSelection === index ? 'border-[#4FD1C5] bg-[#4FD1C5] text-[#0A0E17] font-bold' : 'border-slate-600'
-                }`}>
-                  {String.fromCharCode(65 + index)}
-                </span>
-                <span className="text-sm md:text-base font-medium">{option}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {question.type === 'SHORT_ANSWER' && (
+    <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100">
+      <div className="mx-auto max-w-4xl rounded-3xl border border-slate-800 bg-slate-900/95 p-6 shadow-2xl">
+        <div className="mb-6 flex items-center justify-between">
           <div>
-            <textarea
-              rows="4"
-              value={textResponse}
-              onChange={(e) => setTextResponse(e.target.value)}
-              placeholder="Type your short answer response here..."
-              className="w-full p-4 bg-[#0A0E17] border border-[#1F2937] text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4FD1C5] font-sans placeholder-slate-600 text-sm md:text-base resize-none"
-              required
-            />
+            <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">Question {currentIndex + 1} of {questions.length}</p>
+            <h2 className="mt-2 text-2xl font-semibold text-white"><MathText value={currentQuestion.question_title} /></h2>
           </div>
-        )}
-
-        {/* Dynamic Submission Disabling State Logic */}
-        <div className="pt-4 flex justify-end">
-          <button
-            type="submit"
-            disabled={question.type === 'MCQ' ? mcqSelection === null : !textResponse.trim()}
-            className="w-full md:w-auto bg-[#4FD1C5] hover:bg-[#38B2AC] disabled:bg-slate-800 disabled:text-slate-500 text-[#0A0E17] font-bold py-3 px-8 rounded-xl transition-all shadow-md tracking-wide text-sm uppercase font-mono"
-          >
-            Submit Answer
-          </button>
         </div>
-      </form>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+          <p className="text-lg leading-8 text-slate-200"><MathText value={currentQuestion.question_text} /></p>
+          <div className="mt-6">{renderInput()}</div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          <button
+            onClick={handlePrev}
+            disabled={currentIndex === 0}
+            className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Previous
+          </button>
+
+          {currentIndex < questions.length - 1 ? (
+            <button
+              onClick={handleNext}
+              className="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950"
+            >
+              Submit Exam
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

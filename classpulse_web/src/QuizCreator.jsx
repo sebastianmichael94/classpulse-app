@@ -41,7 +41,6 @@ export default function QuizCreator({ onSaveQuestion }) {
       title,
       question_text: questionText,
       question_type: type,
-      points_possible: 1,
       interaction_data: {}
     };
 
@@ -60,6 +59,14 @@ export default function QuizCreator({ onSaveQuestion }) {
     }
 
     onSaveQuestion(configuration);
+    setTitle('');
+    setQuestionText('');
+    setType('multiple_choice_question');
+    setOptions(['', '']);
+    setCorrectOption(0);
+    setFormula('');
+    setVariableMin('1');
+    setVariableMax('10');
   };
 
   return (

@@ -1,54 +1,24 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
-from .models import Course, QuizSession, Question, Response
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'email']
-
-class CourseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Course
-        fields = ['id', 'name', 'professor']
+from .models import Quiz, Question
 
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
-        fields = ['id', 'session', 'text', 'type', 'options']
+        fields = ['order_index', 'question_title', 'question_type', 'question_text', 'interaction_data']
 
-class QuizSessionSerializer(serializers.ModelSerializer):
-    # We include nested serialized details of the current active question
-    active_questions = serializers.SerializerMethodField()
-
-    class Meta:
-        model = QuizSession
-        fields = ['id', 'course', 'access_code', 'is_active', 'created_at', 'active_questions']
-        read_only_fields = ['access_code', 'is_active']
-
-    def get_active_questions(self, obj):
-        questions = Question.objects.filter(session=obj)
-        return QuestionSerializer(questions, many=True).data
-
-class ResponseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Response
-        fields = ['id', 'question', 'student_name', 'answer_data', 'submitted_at']
-
-class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+class QuizSerializer(serializers.ModelSerializer):
+    questions = QuestionSerializer(many=True)
 
     class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'password', 'first_name', 'last_name']
+        model = Quiz
+        fields = ['id', 'title', 'time_limit_minutes', 'instructions', 'access_code', 'status', 'questions', 'created_at']
 
     def create(self, validated_data):
-        # Uses Django's secure built-in hashing algorithm to safely encrypt passwords
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', '')
-        )
-        return user
+        questions_data = validated_data.pop('questions')
+        # Create the overarching parent Quiz record
+        quiz = Quiz.objects.create(**validated_data)
+        
+        # Sequentially bulk insert the underlying nested questions
+        for question_data in questions_data:
+            Question.objects.create(quiz=quiz, **question_data)
+        return quiz
