@@ -11,51 +11,54 @@ export default function QuizHeaderForm({ onSaveHeader }) {
   };
 
   return (
-    <div className="w-full max-w-3xl bg-white border-2 border-slate-300 rounded-xl p-6 md:p-8 shadow-md text-slate-900">
-      <div className="mb-4 border-b-2 border-slate-200 pb-3">
-        <h2 className="text-xl font-bold text-slate-800">Module 1: Overarching Quiz Metadata</h2>
-        <p className="text-xs text-slate-500 font-mono font-bold uppercase tracking-wider">Parent Container Definition</p>
+    <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl text-slate-100 transition-all duration-300">
+      <div className="mb-6 border-b border-slate-800 pb-4">
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+          <h2 className="text-lg font-semibold text-slate-200 tracking-tight">Step 1: Core Configuration Envelope</h2>
+        </div>
+        <p className="text-xs text-slate-400 mt-1">Define the overarching boundaries and parameters for Dr. Reshma's evaluation assessment.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Quiz Master Title</label>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Quiz Master Title</label>
             <input 
               type="text" 
               value={title} 
               onChange={(e) => setTitle(e.target.value)} 
               placeholder="e.g., Chapter 4: Distributed System Architectures" 
-              className="w-full px-3 py-2 border-2 border-slate-300 text-slate-900 rounded-lg bg-slate-50 font-medium text-sm focus:outline-none focus:border-indigo-600"
+              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl font-medium text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 placeholder-slate-600 transition-all"
               required 
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Time Limit (Minutes)</label>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Time Constraint (Minutes)</label>
             <input 
               type="number" 
               value={timeLimit} 
               onChange={(e) => setTimeLimit(e.target.value)} 
-              className="w-full px-3 py-2 border-2 border-slate-300 text-slate-900 rounded-lg bg-slate-50 font-medium text-sm focus:outline-none focus:border-indigo-600"
+              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl font-medium text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
               required 
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Instructions / Meta Notes</label>
+          <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Instructions / Meta Context Notes</label>
           <textarea 
-            rows="2" 
+            rows="3" 
             value={instructions} 
             onChange={(e) => setInstructions(e.target.value)} 
-            placeholder="Provide any grading notes or context for Dr. Reshma's class here..." 
-            className="w-full p-3 border-2 border-slate-300 text-slate-900 rounded-lg bg-slate-50 text-sm font-medium resize-none focus:outline-none focus:border-indigo-600"
+            placeholder="Provide explicit grading specifications or exam structural rules for the student sandbox..." 
+            className="w-full p-4 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl text-sm font-medium resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 placeholder-slate-600 transition-all"
           />
         </div>
 
-        <div className="flex justify-end">
-          <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-mono font-bold py-2 px-6 rounded-lg text-xs uppercase tracking-wider transition-colors shadow">
-            Lock Quiz Envelope
+        <div className="flex justify-end pt-2">
+          <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-600/20 active:scale-[0.98]">
+            Lock Structural Context
           </button>
         </div>
       </form>

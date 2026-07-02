@@ -8,7 +8,6 @@ export default function ProfessorDashboard({ activeQuiz, onPublish, questionCoun
   const generatedQuizUrl = `http://localhost:5173/quiz/${encodeURIComponent(activeQuiz?.title || 'live-session')}`;
   const accessCode = activeQuiz?.accessCode || "5821";
 
-  // Use a native hook callback loop to safely render the vector pixels
   useEffect(() => {
     if (!isPreviewMode && canvasRef.current) {
       QRCode.toCanvas(
@@ -18,41 +17,40 @@ export default function ProfessorDashboard({ activeQuiz, onPublish, questionCoun
           width: 140,
           margin: 1,
           color: {
-            dark: '#0F172A',  // Slate 900
-            light: '#FFFFFF'  // High contrast white background
+            dark: '#020617', // Slate 950
+            light: '#FFFFFF'
           }
         },
         (error) => {
-          if (error) console.error('QR Generation failed:', error);
+          if (error) console.error('QR Blueprint loop error:', error);
         }
       );
     }
   }, [generatedQuizUrl, isPreviewMode]);
 
   return (
-    <div className="w-full max-w-4xl bg-white border-2 border-slate-300 rounded-xl p-6 md:p-8 shadow-md text-slate-900">
+    <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl text-slate-100 transition-all duration-300">
       
-      {/* Control Banner */}
-      <div className="flex flex-wrap justify-between items-center border-b-2 border-slate-200 pb-4 mb-6 gap-4">
+      <div className="flex flex-wrap justify-between items-center border-b border-slate-800 pb-4 mb-6 gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Professor Command Console</h2>
-          <p className="text-xs text-slate-500 font-mono font-bold uppercase tracking-wider">Status: Draft Mode</p>
+          <h2 className="text-xl font-bold tracking-tight text-slate-100">Professor Command Console</h2>
+          <p className="text-xs text-slate-400 font-mono mt-0.5">Core State: System Orchestration Dispatcher</p>
         </div>
         
-        <div className="flex gap-2 bg-slate-100 p-1 rounded-lg border border-slate-200">
+        <div className="flex gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
           <button 
             type="button"
             onClick={() => setIsPreviewMode(false)}
-            className={`px-4 py-1.5 text-xs font-mono font-bold rounded-md transition-all ${!isPreviewMode ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+            className={`px-4 py-2 text-xs font-medium rounded-lg transition-all ${!isPreviewMode ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            GATEWAY DESIGN
+            ORCHESTRATION PIPELINE
           </button>
           <button 
             type="button"
             onClick={() => setIsPreviewMode(true)}
-            className={`px-4 py-1.5 text-xs font-mono font-bold rounded-md transition-all ${isPreviewMode ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+            className={`px-4 py-2 text-xs font-medium rounded-lg transition-all ${isPreviewMode ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            👀 LIVE PREVIEW
+            STUDENT PREVIEW MIRROR
           </button>
         </div>
       </div>
@@ -60,69 +58,66 @@ export default function ProfessorDashboard({ activeQuiz, onPublish, questionCoun
       {!isPreviewMode ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           
-          {/* Form Context Info Left column */}
           <div className="md:col-span-2 space-y-6">
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-              <span className="block text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest mb-1">Active Quiz Matrix</span>
-              <h3 className="text-lg font-bold text-slate-800">{activeQuiz?.title || "Untitled Component Spec"}</h3>
-              <p className="text-sm text-slate-600 mt-1 italic">"{activeQuiz?.instructions || "No custom instructions supplied."}"</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <div className="text-xs font-mono bg-slate-200 inline-block px-2.5 py-1 rounded-md text-slate-700 font-bold">
-                  ⏱ Time Limit: {activeQuiz?.timeLimit || 15} Minutes
-                </div>
-                <div className="text-xs font-mono bg-indigo-50 inline-block px-2.5 py-1 rounded-md text-indigo-700 font-bold border border-indigo-200">
-                  🧩 {questionCount || 0} Compiled Questions
-                </div>
+            <div className="bg-slate-950 border border-slate-850 rounded-xl p-5 shadow-inner">
+              <span className="block text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest mb-1.5">Staged Schema Profile</span>
+              <h3 className="text-base font-bold text-slate-200">{activeQuiz?.title || "Untitled Assessment Draft"}</h3>
+              <p className="text-xs text-slate-400 mt-1.5 italic font-medium">"{activeQuiz?.instructions || "No explicit instructions assigned yet."}"</p>
+              
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="text-xs font-mono bg-slate-900 border border-slate-800 px-3 py-1 rounded-lg text-slate-300 font-medium">
+                  ⏱ Time Envelope: {activeQuiz?.timeLimit || 15} Mins
+                </span>
+                <span className="text-xs font-mono bg-indigo-950/40 border border-indigo-900/50 px-3 py-1 rounded-lg text-indigo-400 font-medium">
+                  🧩 {questionCount || 0} Compiled Nodes
+                </span>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Laptop Access Link</h4>
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Gateway Network Anchor Uniform Link</h4>
               <input 
                 type="text" 
                 readOnly 
                 value={generatedQuizUrl}
-                className="w-full px-3 py-2 bg-slate-100 border-2 border-slate-200 text-slate-600 font-mono text-xs rounded-lg select-all outline-none"
+                className="w-full px-4 py-3 bg-slate-950 border border-slate-850 text-slate-400 font-mono text-xs rounded-xl select-all outline-none border border-slate-800 focus:border-slate-700 transition-all"
               />
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex justify-end">
+            <div className="pt-4 border-t border-slate-800 flex justify-end">
               <button 
                 onClick={() => onPublish()}
                 disabled={isPublishing}
-                className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400 text-white font-mono font-bold py-3 px-8 rounded-lg shadow text-xs uppercase tracking-wider transition-colors"
+                className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-700/50 text-white font-medium py-3 px-8 rounded-xl shadow-lg shadow-emerald-600/10 text-xs uppercase tracking-wider transition-all active:scale-[0.98]"
               >
-                {isPublishing ? 'Publishing…' : '🚀 Generate & Publish Quiz'}
+                {isPublishing ? 'Transmitting Over-the-Wire...' : '🚀 Release & Publish Matrix'}
               </button>
             </div>
             {publishError ? (
-              <p className="mt-3 text-sm text-rose-600">{publishError}</p>
+              <p className="mt-2 text-xs text-rose-400 bg-rose-950/20 border border-rose-900/30 p-3 rounded-xl">{publishError}</p>
             ) : null}
           </div>
 
-          {/* QR & Code Matrix Right Column */}
-          <div className="flex flex-col items-center justify-center border-t-2 md:border-t-0 md:border-l-2 border-slate-200 pt-6 md:pt-0 md:pl-6 text-center">
-            <span className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">Mobile Scanner Gateway</span>
+          <div className="flex flex-col items-center justify-center border-t md:border-t-0 md:border-l border-slate-800 pt-6 md:pt-0 md:pl-8 text-center">
+            <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Mobile Vector Gateway</span>
             
-            {/* The Native HTML Canvas Target Frame */}
-            <div className="bg-white border-2 border-slate-300 p-2 rounded-xl shadow-sm overflow-hidden flex items-center justify-center">
+            <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-200 flex items-center justify-center transition-all hover:scale-[1.01]">
               <canvas ref={canvasRef} />
             </div>
             
-            <div className="mt-5 w-full bg-slate-900 text-white rounded-xl py-3 px-4">
-              <span className="block text-[10px] font-mono tracking-widest text-slate-400 uppercase">Access Code Entry</span>
-              <span className="text-2xl font-black font-mono tracking-widest text-[#4FD1C5]">{accessCode}</span>
+            <div className="mt-6 w-full bg-slate-950 border border-slate-850 rounded-xl py-3 px-4 shadow-inner">
+              <span className="block text-[10px] font-mono tracking-widest text-slate-500 uppercase">Access PIN Token</span>
+              <span className="text-3xl font-black font-mono tracking-widest text-emerald-400 mt-1 block">{accessCode}</span>
             </div>
           </div>
 
         </div>
       ) : (
-        /* Preview Mode Section */
-        <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-6 space-y-4">
-          <div className="bg-white border border-slate-200 p-6 rounded-lg shadow-sm text-center max-w-sm mx-auto space-y-4">
-            <h4 className="font-bold text-base text-slate-800">Security Verification Required</h4>
-            <p className="text-xs text-slate-500">Scan verified link or enter the 4-digit code provided by your instructor to begin.</p>
-            <input type="text" placeholder="0 0 0 0" maxLength="4" className="w-full text-center tracking-widest font-mono text-xl font-bold border-2 border-slate-300 p-2 bg-slate-50 rounded-lg bg-slate-100" disabled />
+        <div className="bg-slate-950 border-2 border-dashed border-slate-800 rounded-2xl p-8 flex items-center justify-center">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-2xl text-center max-w-sm w-full space-y-4">
+            <h4 className="font-semibold text-sm text-slate-200 tracking-tight">Security Verification Point</h4>
+            <p className="text-xs text-slate-400 leading-relaxed">Scan the validation vector code or parse the active 4-digit token configuration to execute execution viewports.</p>
+            <input type="text" placeholder="0 0 0 0" className="w-full text-center tracking-widest font-mono text-lg font-bold border border-slate-800 p-2.5 bg-slate-950 rounded-xl text-slate-500" disabled />
           </div>
         </div>
       )}

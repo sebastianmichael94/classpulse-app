@@ -1,3 +1,4 @@
+import re
 from django.db.models import Avg, Max, Min
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -5,9 +6,17 @@ from rest_framework.response import Response
 from .models import Quiz, Submission
 from .serializers import QuizSerializer, SubmissionSerializer, SubmissionCreateSerializer
 
+STOP_WORDS = {
+    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'for', 'from', 'has', 'have',
+    'in', 'into', 'is', 'it', 'its', 'of', 'on', 'or', 'our', 'that', 'the', 'their', 'this',
+    'to', 'was', 'were', 'will', 'with', 'you', 'your', 'about', 'can', 'could', 'more', 'than',
+    'very', 'not', 'what', 'when', 'which', 'who', 'why', 'how'
+}
+
+
 class QuizViewSet(viewsets.ModelViewSet):
     queryset = Quiz.objects.all()
-    serializer_with_nested = QuizSerializer
+    serializer_class = QuizSerializer
 
     def get_serializer_class(self):
         return QuizSerializer
@@ -16,14 +25,15 @@ class QuizViewSet(viewsets.ModelViewSet):
     def unlock_quiz(self, request):
         code = request.data.get('access_code')
         if not code:
-            return Response({"error": "Access code required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Access code required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            quiz = Quiz.objects.get(access_code=code, status='PUBLISHED')
-            serializer = self.get_serializer(quiz)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            quiz = Quiz.objects.get(access_code=str(code).strip(), status='PUBLISHED')
         except Quiz.DoesNotExist:
-            return Response({"error": "Invalid access code or quiz is not published yet."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Invalid access code or quiz is not published yet.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(quiz)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'], url_path='analytics')
     def analytics(self, request, pk=None):
@@ -36,34 +46,44 @@ class QuizViewSet(viewsets.ModelViewSet):
         min_score = submissions.aggregate(Min('score'))['score__min'] or 0
 
         essay_texts = []
+        short_texts = []
         for submission in submissions:
-            for answer in submission.answers:
-                if answer.get('question_type') == 'essay_question' and isinstance(answer.get('answer'), str):
-                    essay_texts.append(answer.get('answer'))
+            for answer in submission.answers or []:
+                if not isinstance(answer, dict):
+                    continue
+                answer_value = answer.get('answer')
+                question_type = answer.get('question_type')
+                if question_type == 'essay_question' and isinstance(answer_value, str) and answer_value.strip():
+                    essay_texts.append(answer_value.strip())
+                elif question_type in {'one_word_question', 'fill_in_the_blank_question'} and isinstance(answer_value, str) and answer_value.strip():
+                    short_texts.append(answer_value.strip())
 
         word_counts = {}
-        for essay_text in essay_texts:
-            for word in str(essay_text).lower().split():
-                normalized = ''.join(ch for ch in word if ch.isalnum())
-                if normalized:
-                    word_counts[normalized] = word_counts.get(normalized, 0) + 1
+        for short_text in short_texts:
+            tokens = re.findall(r"[a-zA-Z]+", short_text.lower())
+            for token in tokens:
+                if token in STOP_WORDS or len(token) <= 2:
+                    continue
+                word_counts[token] = word_counts.get(token, 0) + 1
 
         top_words = sorted(word_counts.items(), key=lambda item: item[1], reverse=True)[:20]
-        common_misconceptions = []
-        key_themes_detected = []
 
-        if top_words:
-            common_misconceptions = [
-                f"{term} is appearing repeatedly in student reflections" for term, _ in top_words[:3]
-            ]
-            key_themes_detected = [
-                f"Students are frequently discussing {top_words[0][0]}",
-                f"Secondary emphasis on {top_words[1][0]}" if len(top_words) > 1 else 'Reflection quality is improving',
-                'Submitted responses are showing clear conceptual engagement' if len(top_words) > 2 else 'Conceptual depth is emerging',
-            ]
+        if essay_texts:
+            essay_word_counts = {}
+            for essay_text in essay_texts:
+                for token in re.findall(r"[a-zA-Z]+", essay_text.lower()):
+                    if token in STOP_WORDS or len(token) <= 2:
+                        continue
+                    essay_word_counts[token] = essay_word_counts.get(token, 0) + 1
+
+            top_essay_words = sorted(essay_word_counts.items(), key=lambda item: item[1], reverse=True)[:3]
+            common_misconceptions = [f"Students repeatedly mentioned {word}" for word, _ in top_essay_words] or ['No recurring misconception pattern detected yet.']
+            key_themes_detected = [f"Conceptual focus on {word}" for word, _ in top_essay_words] or ['Essay responses are still emerging.']
+            class_confidence_index = round(min(0.95, max(0.2, 0.45 + (len(essay_texts) * 0.07) + (len(top_essay_words) * 0.04))), 2)
         else:
-            common_misconceptions = ['No misconception patterns detected yet.']
-            key_themes_detected = ['Responses will appear here once students submit essays.']
+            common_misconceptions = ['No essay responses yet.']
+            key_themes_detected = ['Waiting for student essay submissions.']
+            class_confidence_index = 0.0
 
         analytics = {
             'quiz_id': str(quiz.id),
@@ -72,11 +92,17 @@ class QuizViewSet(viewsets.ModelViewSet):
             'max_score': max_score,
             'min_score': min_score,
             'word_cloud': [{'word': word, 'count': count} for word, count in top_words],
-            'essay_summary': 'Essay analytics generated from submitted responses.' if essay_texts else 'No essay submissions available yet.',
+            'essay_summary': {
+                'common_misconceptions': common_misconceptions,
+                'key_themes_detected': key_themes_detected,
+                'class_confidence_index': class_confidence_index,
+            },
             'common_misconceptions': common_misconceptions,
             'key_themes_detected': key_themes_detected,
+            'class_confidence_index': class_confidence_index,
         }
         return Response(analytics)
+
 
 class SubmissionViewSet(viewsets.ModelViewSet):
     queryset = Submission.objects.all()
@@ -86,9 +112,13 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             return SubmissionCreateSerializer
         return SubmissionSerializer
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         submission = serializer.save()
         self.grade_submission(submission)
+        response_serializer = SubmissionSerializer(submission)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
     def grade_submission(self, submission):
         quiz = submission.quiz
@@ -96,7 +126,10 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         score = 0
         total_possible = len(questions)
 
-        for answer_item in submission.answers:
+        for answer_item in submission.answers or []:
+            if not isinstance(answer_item, dict):
+                continue
+
             question_id = answer_item.get('question_id')
             question = questions.get(question_id)
             if not question:
@@ -107,27 +140,48 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             interaction = question.interaction_data or {}
 
             if question_type == 'multiple_choice_question':
-                correct_option = interaction.get('correct_option')
-                if correct_option is None:
-                    correct_option = interaction.get('correct_index')
-                if answer_value == correct_option:
+                correct_index = interaction.get('correct_index')
+                if correct_index is None:
+                    correct_index = interaction.get('correct_option')
+                options = interaction.get('options') or []
+                if isinstance(answer_value, (int, float)) and int(answer_value) == int(correct_index):
                     score += 1
+                elif isinstance(answer_value, str):
+                    if str(answer_value).strip() == str(correct_index).strip():
+                        score += 1
+                    elif isinstance(options, list) and str(answer_value).strip() == str(options[int(correct_index)]).strip():
+                        score += 1
             elif question_type == 'true_false_question':
-                correct_answer = interaction.get('correct_answer')
-                if correct_answer is None:
-                    correct_answer = interaction.get('correct_index')
-                if isinstance(correct_answer, bool):
-                    if answer_value == correct_answer:
-                        score += 1
-                else:
-                    if str(answer_value).lower() == str(correct_answer).lower():
-                        score += 1
+                correct_index = interaction.get('correct_index')
+                if correct_index is None:
+                    correct_index = interaction.get('correct_option')
+                expected_value = 'True' if int(correct_index) == 0 else 'False' if int(correct_index) == 1 else None
+                if expected_value:
+                    if isinstance(answer_value, bool):
+                        if (answer_value and expected_value == 'True') or (not answer_value and expected_value == 'False'):
+                            score += 1
+                    elif isinstance(answer_value, str):
+                        if answer_value.strip().lower() == expected_value.lower():
+                            score += 1
+                    elif isinstance(answer_value, (int, float)):
+                        if int(answer_value) == int(correct_index):
+                            score += 1
             elif question_type == 'formula_question':
-                correct_formula = interaction.get('correct_formula')
-                if correct_formula is None:
-                    correct_formula = interaction.get('formula')
-                if correct_formula and str(answer_value).strip().lower() == str(correct_formula).strip().lower():
-                    score += 1
+                variables = interaction.get('variables') or {}
+                try:
+                    numeric_answer = float(answer_value)
+                except (TypeError, ValueError):
+                    numeric_answer = None
+
+                if numeric_answer is not None:
+                    for variable_config in variables.values():
+                        if isinstance(variable_config, dict):
+                            min_value = variable_config.get('min')
+                            max_value = variable_config.get('max')
+                            if isinstance(min_value, (int, float)) and isinstance(max_value, (int, float)):
+                                if min_value <= numeric_answer <= max_value:
+                                    score += 1
+                                    break
             elif question_type in ['essay_question', 'one_word_question', 'fill_in_the_blank_question']:
                 if answer_value is not None and str(answer_value).strip() != '':
                     score += 1

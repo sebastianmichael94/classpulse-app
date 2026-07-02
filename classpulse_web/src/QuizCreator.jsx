@@ -5,16 +5,13 @@ export default function QuizCreator({ onSaveQuestion }) {
   const [questionText, setQuestionText] = useState('');
   const [type, setType] = useState('multiple_choice_question');
   
-  // MCQ/True-False Options State
   const [options, setOptions] = useState(['', '']);
   const [correctOption, setCorrectOption] = useState(0);
 
-  // Formula Question State
   const [formula, setFormula] = useState('');
   const [variableMin, setVariableMin] = useState('1');
   const [variableMax, setVariableMax] = useState('10');
 
-  // Intercept type changes to automatically prepopulate True/False structures
   const handleTypeChange = (newType) => {
     setType(newType);
     if (newType === 'true_false_question') {
@@ -70,75 +67,75 @@ export default function QuizCreator({ onSaveQuestion }) {
   };
 
   return (
-    <div className="w-full max-w-3xl bg-white border-2 border-slate-300 rounded-xl p-6 md:p-8 shadow-md text-slate-900">
+    <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl text-slate-100 transition-all duration-300">
       
-      <div className="mb-6 border-b-2 border-slate-200 pb-4">
-        <h2 className="text-2xl font-bold text-slate-800">Canvas-Engine Question Builder</h2>
-        <p className="text-xs text-slate-500 font-mono mt-1 font-bold uppercase tracking-wider">Module: Sandbox Compiler</p>
+      <div className="mb-6 border-b border-slate-800 pb-4">
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
+          <h2 className="text-lg font-semibold text-slate-200 tracking-tight">Step 2: Question Canvas Compiler</h2>
+        </div>
+        <p className="text-xs text-slate-400 mt-1">Compile individual algorithmic or plain-text evaluation matrices to the active array queue.</p>
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-6">
         
-        {/* Row 1: Title & Type Selection */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Question Title</label>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Question Identity Label</label>
             <input 
               type="text" 
               value={title} 
               onChange={(e) => setTitle(e.target.value)} 
-              placeholder="e.g., Quiz 1: Scale Constraint" 
-              className="w-full px-4 py-2 border-2 border-slate-300 text-slate-900 rounded-lg focus:outline-none focus:border-indigo-600 bg-slate-50 font-medium" 
+              placeholder="e.g., Question 1: CAP Theorem Balance" 
+              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 font-medium text-sm placeholder-slate-600 transition-all" 
               required 
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Canvas Question Type</label>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Structural Component Matrix</label>
             <select 
               value={type} 
               onChange={(e) => handleTypeChange(e.target.value)}
-              className="w-full px-4 py-2 border-2 border-slate-300 text-slate-900 rounded-lg focus:outline-none focus:border-indigo-600 bg-slate-50 font-medium cursor-pointer"
+              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 font-medium text-sm cursor-pointer transition-all"
             >
-              <option value="multiple_choice_question">Multiple Choice</option>
-              <option value="true_false_question">True/False</option>
-              <option value="essay_question">Essay Question</option>
-              <option value="formula_question">Formula Question</option>
+              <option value="multiple_choice_question">Multiple Choice Matrix</option>
+              <option value="true_false_question">True / False Constant</option>
+              <option value="essay_question">Free-Form Qualitative Essay</option>
+              <option value="formula_question">Algorithmic LaTeX Formula</option>
             </select>
           </div>
         </div>
 
-        {/* Row 2: Prompt Input */}
         <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Question Text / Stem</label>
+          <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Question Prompt String (Supports LaTeX $$...$$)</label>
           <textarea 
             rows="3" 
             value={questionText} 
             onChange={(e) => setQuestionText(e.target.value)} 
-            placeholder={type === 'formula_question' ? "What is 5 multiplied by `x`?" : "Type the core academic question prompt here..."} 
-            className="w-full p-4 border-2 border-slate-300 text-slate-900 rounded-lg focus:outline-none focus:border-indigo-600 bg-slate-50 text-base font-medium resize-none" 
+            placeholder={type === 'formula_question' ? "What is the result when evaluating $$f(x) = x^2 + 5$$?" : "Type the structural assessment question prompt here..."} 
+            className="w-full p-4 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm font-medium resize-none placeholder-slate-600 transition-all" 
             required 
           />
         </div>
 
-        {/* Dynamic Parameter Settings Layout panels */}
         {type === 'multiple_choice_question' && (
-          <div className="bg-slate-100 border-2 border-slate-200 p-5 rounded-xl space-y-4">
-            <span className="block text-xs font-bold text-indigo-700 tracking-wider">MULTIPLE CHOICE OPTIONS</span>
+          <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
+            <span className="block text-xs font-semibold text-indigo-400 tracking-wider">MULTIPLE CHOICE VARIATION MATRIX</span>
             {options.map((option, index) => (
-              <div key={index} className="flex items-center gap-4">
+              <div key={index} className="flex items-center gap-4 group">
                 <input 
                   type="radio" 
                   name="correct_choice" 
                   checked={correctOption === index} 
                   onChange={() => setCorrectOption(index)} 
-                  className="w-5 h-5 text-indigo-600 border-slate-400 cursor-pointer" 
+                  className="w-4 h-4 text-indigo-600 border-slate-800 focus:ring-offset-slate-950 focus:ring-indigo-500 cursor-pointer bg-slate-900" 
                 />
                 <input 
                   type="text" 
                   value={option} 
                   onChange={(e) => handleOptionChange(index, e.target.value)} 
-                  placeholder={`Choice ${String.fromCharCode(65 + index)}`} 
-                  className="flex-1 px-4 py-2 border border-slate-300 text-slate-900 bg-white rounded-lg text-sm font-medium focus:outline-none focus:border-indigo-500" 
+                  placeholder={`Choice Verification Index ${String.fromCharCode(65 + index)}`} 
+                  className="flex-1 px-4 py-2.5 bg-slate-900 border border-slate-800 text-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-500 placeholder-slate-600 transition-all" 
                   required 
                 />
               </div>
@@ -146,75 +143,74 @@ export default function QuizCreator({ onSaveQuestion }) {
             <button 
               type="button" 
               onClick={handleAddOption} 
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 underline block mt-2"
+              className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors inline-flex items-center gap-1 mt-1"
             >
-              + ADD CUSTOM OPTION ROW
+              + Append Dynamic Choice Variant
             </button>
           </div>
         )}
 
         {type === 'true_false_question' && (
-          <div className="bg-slate-100 border-2 border-slate-200 p-5 rounded-xl space-y-4">
-            <span className="block text-xs font-bold text-amber-700 tracking-wider">TRUE / FALSE CONFIGURATION (Select the correct truth value)</span>
+          <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
+            <span className="block text-xs font-semibold text-amber-400 tracking-wider">TRUE / FALSE CONSTANT KEY EVALUATION</span>
             {options.slice(0, 2).map((option, index) => (
-              <div key={index} className="flex items-center gap-4 py-2">
+              <div key={index} className="flex items-center gap-4 py-1.5 px-4 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all">
                 <input 
                   type="radio" 
                   name="correct_choice" 
                   checked={correctOption === index} 
                   onChange={() => setCorrectOption(index)} 
-                  className="w-5 h-5 text-amber-600 border-slate-400 cursor-pointer" 
+                  className="w-4 h-4 text-amber-500 border-slate-800 bg-slate-900" 
                 />
-                <span className="text-base font-bold text-slate-800">{option}</span>
+                <span className="text-sm font-medium text-slate-300">{option}</span>
               </div>
             ))}
           </div>
         )}
 
         {type === 'formula_question' && (
-          <div className="bg-slate-100 border-2 border-slate-200 p-5 rounded-xl space-y-4">
-            <span className="block text-xs font-bold text-emerald-700 tracking-wider">ALGEBRAIC VARIABLE ENGINE</span>
+          <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
+            <span className="block text-xs font-semibold text-emerald-400 tracking-wider">VARIABLE EVALUATION PARSER CONFIGURATION</span>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-600 mb-1">VARIABLE `x` MIN RANGE</label>
+                <label className="block text-[10px] font-medium text-slate-400 mb-2 tracking-wide">VARIABLE `x` INCLUSIVE MIN BOUND</label>
                 <input 
                   type="number" 
                   value={variableMin} 
                   onChange={(e) => setVariableMin(e.target.value)} 
-                  className="w-full px-3 py-2 border border-slate-300 bg-white text-slate-900 rounded-lg text-sm font-medium" 
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 text-slate-100 rounded-xl text-sm font-medium focus:outline-none" 
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-600 mb-1">VARIABLE `x` MAX RANGE</label>
+                <label className="block text-[10px] font-medium text-slate-400 mb-2 tracking-wide">VARIABLE `x` INCLUSIVE MAX BOUND</label>
                 <input 
                   type="number" 
                   value={variableMax} 
                   onChange={(e) => setVariableMax(e.target.value)} 
-                  className="w-full px-3 py-2 border border-slate-300 bg-white text-slate-900 rounded-lg text-sm font-medium" 
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 text-slate-100 rounded-xl text-sm font-medium focus:outline-none" 
                 />
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-600 mb-1">FORMULA DEFINITION (EXCLUDING EQUAL SIGN)</label>
+              <label className="block text-[10px] font-medium text-slate-400 mb-2 tracking-wide">ALGEBRAIC SYNTAX FORMULA STRING (EVAL MATRIX)</label>
               <input 
                 type="text" 
                 value={formula} 
                 onChange={(e) => setFormula(e.target.value)} 
-                placeholder="e.g., 5 * x" 
-                className="w-full px-3 py-2 border border-slate-300 bg-white text-slate-900 font-mono text-sm rounded-lg focus:outline-none focus:border-emerald-600" 
+                placeholder="e.g., x * 5 + 12" 
+                className="w-full px-4 py-3 bg-slate-900 border border-slate-800 text-slate-100 font-mono text-sm rounded-xl focus:outline-none focus:border-emerald-500 placeholder-slate-600 transition-all" 
                 required 
               />
             </div>
           </div>
         )}
 
-        {/* Action Button */}
         <div className="flex justify-end pt-2">
           <button 
             type="submit" 
-            className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow transition-colors text-sm tracking-wider uppercase"
+            className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 px-8 rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-xs tracking-widest uppercase active:scale-[0.98]"
           >
-            Compile Canvas Structure
+            Compile Framework Element
           </button>
         </div>
       </form>

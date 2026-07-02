@@ -1,41 +1,101 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import StudentQuizGateway from './StudentQuizGateway';
-import QuestionPlayer from './QuestionPlayer';
+import LandingPage from './LandingPage';
+import StudentGateway from './StudentGateway';
+import ExamPlayer from './ExamPlayer';
 import StudentScorecard from './StudentScorecard';
 import QuizHeaderForm from './QuizHeaderForm';
 import QuizCreator from './QuizCreator';
 import ProfessorDashboard from './ProfessorDashboard';
 import LiveAnalytics from './LiveAnalytics';
 
+const STUDENT_SESSION_KEY = 'classpulse.activeStudentSession';
+
+function readStoredStudentSession() {
+  try {
+    const rawValue = localStorage.getItem(STUDENT_SESSION_KEY);
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsed = JSON.parse(rawValue);
+    if (!parsed?.quiz || !parsed?.studentName || !parsed?.quizId) {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredStudentSession({ quiz, studentName }) {
+  const payload = {
+    quiz,
+    studentName,
+    quizId: quiz?.id,
+    savedAt: new Date().toISOString(),
+  };
+
+  localStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(payload));
+}
+
+function clearStoredStudentSession() {
+  localStorage.removeItem(STUDENT_SESSION_KEY);
+}
+
+function ExamRoute({ activeQuiz, studentName, onSubmitSuccess, isSessionHydrating }) {
+  const { quizId } = useParams();
+
+  if (isSessionHydrating) {
+    return <div className="min-h-screen bg-slate-950 text-slate-300 flex items-center justify-center">Restoring active exam session...</div>;
+  }
+
+  if (!activeQuiz || String(activeQuiz?.id) !== String(quizId)) {
+    return <Navigate to="/student" replace />;
+  }
+
+  return <ExamPlayer quiz={activeQuiz} studentName={studentName} onSubmitSuccess={onSubmitSuccess} />;
+}
+
 function AppRoutes() {
   const navigate = useNavigate();
   const [activeQuiz, setActiveQuiz] = useState(null);
   const [studentName, setStudentName] = useState('');
   const [submissionResult, setSubmissionResult] = useState(null);
+  const [isSessionHydrating, setIsSessionHydrating] = useState(true);
   const [quizHeader, setQuizHeader] = useState({ title: '', timeLimit: 15, instructions: '' });
   const [activeQuestionList, setActiveQuestionList] = useState([]);
   const [publishedQuizId, setPublishedQuizId] = useState(null);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
 
+  useEffect(() => {
+    const storedSession = readStoredStudentSession();
+
+    if (storedSession?.quiz && storedSession?.studentName) {
+      setActiveQuiz(storedSession.quiz);
+      setStudentName(storedSession.studentName);
+    }
+
+    setIsSessionHydrating(false);
+  }, []);
+
   const handleQuizLoaded = ({ quiz, studentName: enteredName }) => {
     setActiveQuiz(quiz);
     setStudentName(enteredName);
+    writeStoredStudentSession({ quiz, studentName: enteredName });
   };
 
-  const handleSubmission = async (payload) => {
-    try {
-      const response = await axios.post('http://127.0.0.1:8000/api/submissions/', payload);
-      setSubmissionResult(response.data);
-      navigate('/scorecard');
-    } catch (error) {
-      console.error(error);
-    }
+  const handleSubmissionSuccess = (result) => {
+    clearStoredStudentSession();
+    setSubmissionResult(result);
+    navigate('/scorecard');
   };
 
   const handleReset = () => {
+    clearStoredStudentSession();
     setActiveQuiz(null);
     setSubmissionResult(null);
     setStudentName('');
@@ -97,9 +157,9 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/professor" replace />} />
+      <Route path="/" element={<LandingPage />} />
       <Route
-        path="/professor"
+        path="/instructor"
         element={
           <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100">
             <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -123,20 +183,18 @@ function AppRoutes() {
           </div>
         }
       />
-      <Route path="/student" element={<StudentQuizGateway onQuizLoaded={handleQuizLoaded} />} />
-      <Route path="/quiz/:id" element={<StudentQuizGateway onQuizLoaded={handleQuizLoaded} />} />
+      <Route path="/professor" element={<Navigate to="/instructor" replace />} />
+      <Route path="/student" element={<StudentGateway onQuizLoaded={handleQuizLoaded} />} />
+      <Route path="/quiz/:id" element={<StudentGateway onQuizLoaded={handleQuizLoaded} />} />
       <Route
         path="/player/:quizId"
         element={
-          activeQuiz ? (
-            <QuestionPlayer
-              quiz={activeQuiz}
-              studentName={studentName}
-              onSubmit={handleSubmission}
-            />
-          ) : (
-            <Navigate to="/student" replace />
-          )
+          <ExamRoute
+            activeQuiz={activeQuiz}
+            studentName={studentName}
+            onSubmitSuccess={handleSubmissionSuccess}
+            isSessionHydrating={isSessionHydrating}
+          />
         }
       />
       <Route
