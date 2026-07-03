@@ -44,16 +44,16 @@ export default function LandingPage() {
 
         <main className="mt-8 grid flex-1 gap-5 md:grid-cols-2">
           <AccessDoor
-            to="/instructor"
-            title="Instructor Console"
-            subtitle="Design and publish exams, orchestrate live cohorts, and monitor performance analytics from one secure operations surface."
+            to="/login?role=professor"
+            title="🔬 Professor Console"
+            subtitle="Sign in to design quizzes, manage question banks, and launch real-time AI analytics command screens."
             accentClass="text-cyan-200"
             pulseClass="hover:shadow-[0_0_40px_rgba(34,211,238,0.25)]"
           />
           <AccessDoor
-            to="/student"
-            title="Student Examination Gateway"
-            subtitle="Authenticate with your exam PIN, resume active sessions after refresh, and complete assessments in a stable focused environment."
+            to="/login?role=student"
+            title="🎓 Student Portal"
+            subtitle="Sign in to access your gradebook, review quiz history, and enter a live exam PIN with session continuity."
             accentClass="text-emerald-200"
             pulseClass="hover:shadow-[0_0_40px_rgba(16,185,129,0.22)]"
           />

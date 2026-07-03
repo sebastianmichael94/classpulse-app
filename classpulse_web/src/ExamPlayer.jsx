@@ -1,15 +1,67 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import LatexText from './LatexText';
+
+const POLL_INTERVAL_MS = 4000;
 
 export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
   const [answers, setAnswers] = useState({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [liveInsight, setLiveInsight] = useState(null);
+  const [dismissedInsightKey, setDismissedInsightKey] = useState('');
+  const pollingRef = useRef(null);
 
   const questions = useMemo(() => quiz?.questions || [], [quiz]);
   const currentQuestion = questions[currentIndex];
+
+  useEffect(() => {
+    if (!quiz?.id) {
+      setLiveInsight(null);
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    const pullLiveInsight = async () => {
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/api/quizzes/${quiz.id}/analytics/`);
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = await response.json();
+        const sharedText = String(payload?.shared_insight_text || '').trim();
+        const sharedUpdatedAt = String(payload?.shared_insight_updated_at || '').trim();
+        const insightKey = `${sharedUpdatedAt}:${sharedText}`;
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (sharedText && insightKey !== dismissedInsightKey) {
+          setLiveInsight({
+            text: sharedText,
+            updatedAt: sharedUpdatedAt,
+            key: insightKey,
+          });
+        }
+      } catch {
+        // Keep the current banner state if polling fails temporarily.
+      }
+    };
+
+    pullLiveInsight();
+    pollingRef.current = window.setInterval(pullLiveInsight, POLL_INTERVAL_MS);
+
+    return () => {
+      isMounted = false;
+      if (pollingRef.current) {
+        window.clearInterval(pollingRef.current);
+      }
+    };
+  }, [quiz?.id, dismissedInsightKey]);
 
   const updateAnswer = (questionId, value) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
@@ -142,6 +194,27 @@ export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100">
       <div className="mx-auto max-w-4xl rounded-3xl border border-slate-800 bg-slate-900/95 p-6 shadow-2xl">
+        {liveInsight ? (
+          <div className="mb-5 rounded-2xl border border-cyan-500/35 bg-cyan-500/10 p-4 shadow-[0_0_24px_rgba(34,211,238,0.15)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">✨ Live Insight from Dr. Reshma</p>
+                <p className="mt-2 text-sm text-cyan-100 leading-6">{liveInsight.text}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setDismissedInsightKey(liveInsight.key);
+                  setLiveInsight(null);
+                }}
+                className="rounded-lg border border-cyan-400/40 bg-slate-950/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-cyan-200 transition-all hover:border-cyan-300 hover:text-cyan-100"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">Question {currentIndex + 1} of {questions.length}</p>

@@ -1,0 +1,143 @@
+import { useEffect, useMemo, useState } from 'react';
+import LiveAnalytics from './LiveAnalytics';
+
+const AUTH_SESSION_KEY = 'classpulse.authSession';
+
+function readAuthToken() {
+  try {
+    const rawValue = localStorage.getItem(AUTH_SESSION_KEY);
+    if (!rawValue) {
+      return null;
+    }
+    const parsed = JSON.parse(rawValue);
+    return parsed?.token || null;
+  } catch {
+    return null;
+  }
+}
+
+function formatDate(value) {
+  if (!value) {
+    return 'Unknown';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Unknown';
+  }
+  return date.toLocaleString();
+}
+
+export default function ProfessorHistoryVault() {
+  const [historyRows, setHistoryRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [selectedQuizId, setSelectedQuizId] = useState(null);
+
+  const authToken = useMemo(() => readAuthToken(), []);
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!authToken) {
+        setError('Authentication token missing. Sign in again as professor.');
+        return;
+      }
+
+      setLoading(true);
+      setError('');
+
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/professor/quizzes/history/', {
+          headers: {
+            Authorization: `Token ${authToken}`,
+          },
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Unable to load assessment history.');
+        }
+
+        setHistoryRows(Array.isArray(payload?.history) ? payload.history : []);
+      } catch (fetchError) {
+        setError(fetchError.message || 'Unable to load assessment history.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadHistory();
+  }, [authToken]);
+
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 text-slate-100 shadow-2xl">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-5">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">📁 Assessment Vault & History</p>
+          <h2 className="mt-2 text-2xl font-semibold text-white">Professor archives</h2>
+          <p className="mt-1 text-sm text-slate-400">Audit completed assessments, final analytics states, and historical submissions.</p>
+        </div>
+      </div>
+
+      {loading ? <p className="text-sm text-slate-400">Loading archive vault...</p> : null}
+      {error ? <p className="text-sm text-rose-300 mb-4">{error}</p> : null}
+
+      <div className="overflow-x-auto rounded-xl border border-slate-800">
+        <table className="w-full min-w-[760px] text-left">
+          <thead className="bg-slate-950/80">
+            <tr>
+              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Quiz Title</th>
+              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Date Conducted</th>
+              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Submissions</th>
+              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">AI Summary Cache</th>
+              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {historyRows.length ? historyRows.map((row) => (
+              <tr key={row.id} className="border-t border-slate-800 bg-slate-900/70">
+                <td className="px-4 py-3 text-sm font-semibold text-slate-100">{row.title}</td>
+                <td className="px-4 py-3 text-sm text-slate-300">{formatDate(row.created_at)}</td>
+                <td className="px-4 py-3">
+                  <span className="inline-flex items-center rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-200">
+                    {row.total_submissions} submissions
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-sm text-slate-300">{row.has_ai_summary_cached ? 'Cached' : 'Not Cached'}</td>
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedQuizId(row.id)}
+                    className="rounded-lg border border-violet-400/40 bg-violet-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-violet-200 transition-all hover:bg-violet-500/20"
+                  >
+                    🔍 Open Archives
+                  </button>
+                </td>
+              </tr>
+            )) : (
+              <tr>
+                <td colSpan={5} className="px-4 py-5 text-sm text-slate-400 bg-slate-900/70">No historical quizzes found for this professor account yet.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {selectedQuizId ? (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedQuizId(null)}
+                className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200 transition-all hover:border-rose-400/50 hover:text-rose-300"
+              >
+                Close Archive
+              </button>
+            </div>
+            <LiveAnalytics quizId={selectedQuizId} staticMode />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

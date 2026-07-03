@@ -1,160 +1,161 @@
 import random
 import time
+
 import requests
 
-# 🎯 Configuration Settings
-BASE_URL = "http://127.0.0.1:8000"     # Base Django server route
-ACCESS_CODE = "8943"                   # Target Quiz Access PIN
-TOTAL_STUDENTS = 50                    # Number of test cases to generate
-UNLOCK_ENDPOINTS = [
-    f"{BASE_URL}/api/quizzes/unlock/",
-    f"{BASE_URL}/quizzes/unlock/",
-]
-SUBMISSION_ENDPOINTS = [
-    f"{BASE_URL}/api/submissions/",
-    f"{BASE_URL}/submissions/",
-]
+BASE_URL = "http://127.0.0.1:8000"
+API_BASE = f"{BASE_URL}/api"
+QUIZ_ACCESS_PIN = "3298"
+STUDENT_COUNT = 15
+REQUEST_TIMEOUT = 8
+DELAY_BETWEEN_SUBMISSIONS_SECONDS = 0.25
 
-# 📝 Mock Data Pools for Random Generation
-FIRST_NAMES = ["Amit", "Neha", "Rohan", "Priya", "Rahul", "Siddharth", "Anjali", "Vikram", "Tanvi", "Aditya"]
-LAST_NAMES = ["Sharma", "Verma", "Patel", "Joshi", "Mehta", "Rao", "Nair", "Gupta", "Mishra", "Kulkarni"]
-
-VOCABULARY_WORDS = [
-    "Kafka", "scalability", "latency", "distributed", "event-driven", "database", 
-    "linearizable", "consistency", "throughput", "caching", "Redis", "PostgreSQL",
-    "partitioning", "replication", "broker", "consumer", "producer", "async", "API",
-    "microservices", "concurrency", "deadlock", "sharding", "indexes", "architecture"
+VOCABULARY = ["Kafka", "distributed-ledger", "linearizable", "event-driven", "consensus", "bottleneck"]
+GIST_TEMPLATES = [
+    "We should isolate the {} to ensure strict linearizable ordering.",
+    "The primary architectural challenge stems from the {} synchronization delay.",
+    "Implementing {} mitigates race conditions across high-concurrency partitions.",
 ]
 
-SENTENCE_STRUCTURES = [
-    "The core bottleneck is {} which spikes processing latency.",
-    "Using {} ensures high throughput and strong decoupling in our system design.",
-    "We should optimize {} to handle linearizable consistency guarantees.",
-    "Implementing a robust {} model mitigates the high-concurrency race condition.",
-    "The distributed cluster handles {} gracefully during a node partition event."
-]
 
-def fetch_quiz_details():
-    """Hits the unlock endpoint to fetch the quiz payload and its associated questions."""
-    for url in UNLOCK_ENDPOINTS:
-        try:
-            response = requests.post(url, json={"access_code": ACCESS_CODE}, timeout=5)
-            if response.status_code == 200:
-                print(f"📡 Handshake established via: {url}")
-                return response.json()
-        except requests.RequestException:
-            continue
-    return None
+def _pick_published_quiz_code(session):
+    try:
+        response = session.get(f"{API_BASE}/quizzes/", timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+    except requests.RequestException:
+        return None
+
+    quizzes = response.json() if isinstance(response.json(), list) else []
+    published = [quiz for quiz in quizzes if str(quiz.get("status", "")).upper() == "PUBLISHED" and quiz.get("access_code")]
+    return published[0]["access_code"] if published else None
 
 
-def resolve_submission_url():
-    """Finds the live submission endpoint registered in Django."""
-    probe_payload = {
-        "quiz": "00000000-0000-0000-0000-000000000000",
-        "student_name": "route-probe",
-        "answers": [],
-    }
+def _unlock_quiz(session, access_code):
+    response = session.post(
+        f"{API_BASE}/quizzes/unlock/",
+        json={"access_code": str(access_code).strip()},
+        timeout=REQUEST_TIMEOUT,
+    )
+    if response.status_code == 200:
+        return response.json(), None
 
-    for url in SUBMISSION_ENDPOINTS:
-        try:
-            response = requests.post(url, json=probe_payload, timeout=5)
-            if response.status_code != 404:
-                print(f"📨 Submission channel resolved via: {url}")
-                return url
-        except requests.RequestException:
-            continue
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = {}
+    return None, payload.get("error") or f"HTTP {response.status_code}"
 
-    return None
 
-def generate_payload_answers(questions):
-    payload_answers = []
-    
-    for question in questions:
-        q_id = question.get("id")
-        q_type = question.get("question_type", "essay_question")
-        
-        if q_type == "multiple_choice_question":
-            options = question.get("interaction_data", {}).get("options", ["A", "B", "C", "D"])
-            answer_val = random.choice(options)
-        elif q_type == "true_false_question":
-            answer_val = random.choice(["True", "False"])
-        elif q_type == "formula_question":
-            variables = question.get("interaction_data", {}).get("variables", {})
-            numeric_candidates = []
-            for variable_config in variables.values():
-                if isinstance(variable_config, dict):
-                    min_value = variable_config.get("min")
-                    max_value = variable_config.get("max")
-                    if isinstance(min_value, (int, float)) and isinstance(max_value, (int, float)):
-                        numeric_candidates.append((min_value + max_value) / 2)
+def _build_answer_for_question(question):
+    question_type = str(question.get("question_type") or "").strip()
+    interaction_data = question.get("interaction_data") or {}
 
-            answer_val = round(random.choice(numeric_candidates), 2) if numeric_candidates else random.randint(1, 100)
-        elif q_type in {"one_word_question", "fill_in_the_blank_question"}:
-            answer_val = random.choice(VOCABULARY_WORDS)
-        else:
-            words_used = random.sample(VOCABULARY_WORDS, random.randint(2, 4))
-            answer_val = random.choice(SENTENCE_STRUCTURES).format(" and ".join(words_used))
-            
-        payload_answers.append({
-            "question_id": q_id,
-            "question_type": q_type,
-            "answer": answer_val
-        })
-        
-    return payload_answers
+    if question_type in {"Multiple Choice", "multiple_choice_question"}:
+        options = interaction_data.get("options") or []
+        return random.choice(options) if options else "Option A"
 
-def run_simulation():
-    print(f"🔍 Fetching active questions for Access Code {ACCESS_CODE}...")
-    quiz_data = fetch_quiz_details()
-    
-    if not quiz_data or "id" not in quiz_data:
-        print("🛑 Aborting simulation. Could not resolve the quiz structure or access pin.")
+    if question_type in {"True/False", "true_false_question"}:
+        return random.choice(["True", "False"])
+
+    if question_type == "Multiple Answers":
+        options = interaction_data.get("options") or []
+        if not options:
+            return []
+        count = min(len(options), max(1, random.randint(1, 2)))
+        return random.sample(options, count)
+
+    if question_type in {"Essay Question", "essay_question"}:
+        return random.choice(GIST_TEMPLATES).format(random.choice(VOCABULARY))
+
+    if question_type in {"Fill In the Blank", "one_word_question", "fill_in_the_blank_question"}:
+        return random.choice(VOCABULARY)
+
+    if question_type in {"Fill In Multiple Blanks", "Multiple Dropdowns", "Matching"}:
+        return {"slot_1": random.choice(VOCABULARY), "slot_2": random.choice(VOCABULARY)}
+
+    if question_type in {"Formula Question", "formula_question", "Numerical Answer"}:
+        return random.randint(1, 100)
+
+    if question_type == "File Upload Question":
+        return {"name": "mock_submission.pdf", "size": 1024, "type": "application/pdf"}
+
+    if question_type == "Text (no question)":
+        return ""
+
+    return random.choice(VOCABULARY)
+
+
+def run_e2e_test_suite():
+    session = requests.Session()
+
+    print(f"STARTING CLASSPULSE REAL-TIME INGESTION FLOOD AGAINST ACCESS CODE: {QUIZ_ACCESS_PIN}")
+    print("=" * 70)
+
+    quiz, unlock_error = _unlock_quiz(session, QUIZ_ACCESS_PIN)
+    used_code = QUIZ_ACCESS_PIN
+
+    if not quiz:
+        fallback_code = _pick_published_quiz_code(session)
+        if fallback_code and fallback_code != QUIZ_ACCESS_PIN:
+            print(f"Access code {QUIZ_ACCESS_PIN} did not unlock a published quiz. Retrying with discovered code: {fallback_code}")
+            quiz, unlock_error = _unlock_quiz(session, fallback_code)
+            used_code = fallback_code
+
+    if not quiz:
+        print(f"Unable to unlock quiz. Reason: {unlock_error}")
+        print("Tip: publish a quiz first, then re-run this script with the active access code.")
         return
 
-    quiz_id = quiz_data["id"]
-    questions = quiz_data.get("questions", [])
-
-    if not questions:
-        print("🛑 Aborting simulation. Quiz payload returned no questions, so submissions would be invalid.")
+    quiz_id = quiz.get("id")
+    questions = quiz.get("questions") or []
+    if not quiz_id or not questions:
+        print("Unlocked quiz is missing id/questions; cannot continue flood submissions.")
         return
 
-    print(f"🎯 Active Quiz Identity Resolved: {quiz_id}")
-    print(f"👥 Spawning {TOTAL_STUDENTS} unique student submissions...")
-    print("-" * 60)
+    print(f"Unlocked quiz {quiz_id} using code {used_code}. Questions found: {len(questions)}")
 
     success_count = 0
-    active_submit_url = resolve_submission_url()
+    for idx in range(1, STUDENT_COUNT + 1):
+        student_name = f"Student_{idx}"
 
-    if not active_submit_url:
-        print("🛑 Aborting simulation. Could not resolve a live submission endpoint from the Django router.")
-        return
-        
-    for i in range(1, TOTAL_STUDENTS + 1):
-        student_name = f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
-        payload_answers = generate_payload_answers(questions)
+        answers = []
+        for question in questions:
+            answers.append(
+                {
+                    "question_id": question.get("id"),
+                    "question_type": question.get("question_type"),
+                    "answer": _build_answer_for_question(question),
+                }
+            )
 
-        payload = {
+        submission_payload = {
             "quiz": quiz_id,
             "student_name": student_name,
-            "answers": payload_answers
+            "answers": answers,
         }
-        
+
         try:
-            response = requests.post(active_submit_url, json=payload, timeout=5)
-            
-            if response.status_code in [200, 201]:
-                print(f"[✅ {i}/{TOTAL_STUDENTS}] Submitted successfully: {student_name}")
+            response = session.post(f"{API_BASE}/submissions/", json=submission_payload, timeout=REQUEST_TIMEOUT)
+            if response.status_code in {200, 201}:
+                payload = response.json()
                 success_count += 1
+                print(
+                    f"[OK {idx}/{STUDENT_COUNT}] Accepted {student_name} "
+                    f"score={payload.get('score', 0)}/{payload.get('total_possible', 0)}"
+                )
             else:
-                print(f"[❌ {i}/{TOTAL_STUDENTS}] Refused at {active_submit_url}. Status code: {response.status_code}")
-                
-        except requests.exceptions.RequestException as e:
-            print(f"[💥 {i}/{TOTAL_STUDENTS}] Broken line interface connection: {e}")
-            
-        time.sleep(0.3)
-        
-    print("-" * 60)
-    print(f"🏁 Simulation complete! {success_count}/{TOTAL_STUDENTS} data arrays successfully committed to Django state.")
+                try:
+                    error_payload = response.json()
+                except ValueError:
+                    error_payload = response.text
+                print(f"[FAIL {idx}/{STUDENT_COUNT}] Status={response.status_code} body={error_payload}")
+        except requests.RequestException as exc:
+            print(f"[DROP {idx}/{STUDENT_COUNT}] Network error for {student_name}: {exc}")
+
+        time.sleep(DELAY_BETWEEN_SUBMISSIONS_SECONDS)
+
+    print("=" * 70)
+    print(f"INGESTION FLOOD COMPLETE: {success_count}/{STUDENT_COUNT} submissions accepted")
 
 if __name__ == "__main__":
-    run_simulation()
+    run_e2e_test_suite()
