@@ -35,12 +35,33 @@ export default function ProfessorHistoryVault() {
         const response = await authFetch(`${API_BASE_URL}/api/professor/quizzes/history/`);
 
         const payload = await response.json().catch(() => ({}));
+        const isEmptyPayload = !payload || Object.keys(payload).length === 0;
+
         if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            setHistoryRows([]);
+            setError('');
+            return;
+          }
+
           throw new Error(payload?.error || 'Unable to load assessment history.');
+        }
+
+        if (isEmptyPayload) {
+          setHistoryRows([]);
+          setError('');
+          return;
         }
 
         setHistoryRows(Array.isArray(payload?.history) ? payload.history : []);
       } catch (fetchError) {
+        const statusCode = Number(fetchError?.status || fetchError?.response?.status || 0);
+        if (statusCode === 401 || statusCode === 403) {
+          setHistoryRows([]);
+          setError('');
+          return;
+        }
+
         setError(fetchError.message || 'Unable to load assessment history.');
       } finally {
         setLoading(false);
