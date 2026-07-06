@@ -130,12 +130,11 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5174",
-    "http://127.0.0.1:5174",
+    os.getenv("LIVE_FRONTEND_URL", "http://localhost:5173"),
+    "https://classpulse-app-blond.vercel.app",
 ]
 
-if 'LIVE_FRONTEND_URL' in os.environ:
-    CORS_ALLOWED_ORIGINS.append(os.environ['LIVE_FRONTEND_URL'])
+CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5174',
