@@ -60,7 +60,7 @@ export default function LandingPage() {
           <AccessDoor
             to="/login?role=professor"
             title="Teacher Portal"
-            subtitle="Launch a new live quiz, draft questions, and access your on-demand AI class analytics dashboard."
+            subtitle="Administrator login only. Enter with authorized email and password to launch quizzes and access class analytics."
             accentClass="text-cyan-200"
             pulseClass="hover:shadow-[0_0_40px_rgba(34,211,238,0.25)]"
           />

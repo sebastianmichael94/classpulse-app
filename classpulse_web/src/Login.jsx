@@ -1,19 +1,11 @@
-import { useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL, persistAuthSession } from './apiClient';
 
-function readPreferredRole(search) {
-  const params = new URLSearchParams(search || '');
-  const role = String(params.get('role') || '').toLowerCase();
-  return role === 'professor' ? 'professor' : 'student';
-}
-
 export default function Login() {
-  const location = useLocation();
   const navigate = useNavigate();
-  const preferredRole = useMemo(() => readPreferredRole(location.search), [location.search]);
 
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -27,13 +19,27 @@ export default function Login() {
     setError('');
     setIsSubmitting(true);
 
+    const targetEmail = 'menon@ucmerced.edu';
+    const targetPassword = 'Menon@123';
+    const email = String(credentials.email || '');
+    const password = String(credentials.password || '');
+
+    if (email.trim().toLowerCase() !== targetEmail || password !== targetPassword) {
+      setError('Access Denied: Invalid administrator credentials.');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/login/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(credentials),
+        body: JSON.stringify({
+          username: email,
+          password,
+        }),
       });
 
       const payload = await response.json().catch(() => ({}));
@@ -66,16 +72,15 @@ export default function Login() {
       <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl">
         <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">ClassPulse Access</p>
         <h1 className="mt-3 text-3xl font-semibold text-white">Welcome back</h1>
-        <p className="mt-2 text-sm text-slate-400">
-          Sign in as {preferredRole === 'professor' ? 'Professor' : 'Student'} to enter your workspace.
-        </p>
+        <p className="mt-2 text-sm text-slate-400">Teacher Portal login. Authorized administrator credentials only.</p>
 
         <form onSubmit={handleLogin} className="mt-6 space-y-4">
           <input
-            name="username"
-            value={credentials.username}
+            type="email"
+            name="email"
+            value={credentials.email}
             onChange={handleChange}
-            placeholder="Username or email"
+            placeholder="Email"
             className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
             required
           />
@@ -99,13 +104,6 @@ export default function Login() {
             {isSubmitting ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-
-        <p className="mt-5 text-sm text-slate-400">
-          Need an account?{' '}
-          <Link to={`/register?role=${preferredRole}`} className="text-cyan-300 hover:text-cyan-200 font-semibold">
-            Register here
-          </Link>
-        </p>
       </div>
     </div>
   );

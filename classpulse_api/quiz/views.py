@@ -810,6 +810,12 @@ class RegisterView(APIView):
         security_question = str(data.get('security_question') or '').strip()
         security_answer = str(data.get('security_answer') or '').strip()
 
+        if role == 'professor':
+            return Response(
+                {'error': 'Access Denied: Instructor registration is disabled.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         if User.objects.filter(username=username).exists():
             return Response({'error': 'Username already exists.'}, status=status.HTTP_400_BAD_REQUEST)
         if User.objects.filter(email=email).exists():
@@ -859,12 +865,21 @@ class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        username = serializer.validated_data['username'].strip()
+        email = serializer.validated_data['username'].strip().lower()
         password = serializer.validated_data['password']
 
-        user = authenticate(username=username, password=password)
+        TARGET_EMAIL = 'menon@ucmerced.edu'
+        TARGET_PASSWORD = 'Menon@123'
+
+        if email.lower().strip() != TARGET_EMAIL or password != TARGET_PASSWORD:
+            return Response(
+                {'error': 'Access Denied: Invalid administrator credentials.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        user = authenticate(username=email, password=password)
         if user is None:
-            user_by_email = User.objects.filter(email=username).first()
+            user_by_email = User.objects.filter(email=email).first()
             if user_by_email:
                 user = authenticate(username=user_by_email.username, password=password)
 
