@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
+import { API_BASE_URL, readAuthSession } from './apiClient';
 
 function extractPinSeed(identityValue) {
   if (!identityValue) {
@@ -22,10 +23,19 @@ function sanitizePin(rawValue) {
 export default function StudentGateway({ onQuizLoaded }) {
   const navigate = useNavigate();
   const { id } = useParams();
+  const authSession = readAuthSession();
+  const profileName = String(
+    authSession?.user?.name
+    || authSession?.user?.full_name
+    || [authSession?.user?.first_name, authSession?.user?.last_name].filter(Boolean).join(' ')
+    || authSession?.user?.username
+    || ''
+  ).trim();
   const [accessCode, setAccessCode] = useState('');
-  const [studentName, setStudentName] = useState('');
+  const [studentName, setStudentName] = useState(profileName);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [hasAutoJoined, setHasAutoJoined] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -33,10 +43,19 @@ export default function StudentGateway({ onQuizLoaded }) {
     }
   }, [id]);
 
-  const handleUnlock = async (event) => {
-    event.preventDefault();
-    const normalizedPin = sanitizePin(accessCode);
-    const normalizedName = studentName.trim();
+  useEffect(() => {
+    if (profileName) {
+      setStudentName(profileName);
+    }
+  }, [profileName]);
+
+  const handleUnlock = async (event, options = {}) => {
+    if (event?.preventDefault) {
+      event.preventDefault();
+    }
+
+    const normalizedPin = sanitizePin(options.accessCode ?? accessCode);
+    const normalizedName = String(options.studentName ?? studentName).trim();
 
     if (normalizedPin.length !== 4) {
       setError('Enter a valid 4-digit access PIN.');
@@ -52,7 +71,7 @@ export default function StudentGateway({ onQuizLoaded }) {
     setError('');
 
     try {
-      const response = await axios.post('http://127.0.0.1:8000/api/quizzes/unlock/', {
+      const response = await axios.post(`${API_BASE_URL}/api/quizzes/unlock/`, {
         access_code: normalizedPin,
       });
 
@@ -62,7 +81,9 @@ export default function StudentGateway({ onQuizLoaded }) {
       }
     } catch (err) {
       if (err.response?.status === 404) {
-        setError('That access code is invalid or the quiz is not published yet.');
+        setError('That access code is invalid.');
+      } else if (err.response?.status === 403) {
+        setError(String(err.response?.data?.error || 'This quiz session is not available right now.'));
       } else {
         setError('We could not unlock the quiz. Please try again.');
       }
@@ -70,6 +91,21 @@ export default function StudentGateway({ onQuizLoaded }) {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    const normalizedPin = sanitizePin(accessCode);
+    if (!id || !profileName || normalizedPin.length !== 4 || isLoading || hasAutoJoined) {
+      return;
+    }
+
+    setHasAutoJoined(true);
+    handleUnlock(null, {
+      accessCode: normalizedPin,
+      studentName: profileName,
+    }).catch(() => {
+      setHasAutoJoined(false);
+    });
+  }, [id, profileName, accessCode, isLoading, hasAutoJoined]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4 py-10">
@@ -90,23 +126,29 @@ export default function StudentGateway({ onQuizLoaded }) {
               </div>
             </div>
             <div className="mt-6 space-y-3 text-sm text-slate-400">
-              <p>• Enter your name so your submission is attributed correctly.</p>
+              <p>• {profileName ? 'Your signed-in student profile will be used automatically.' : 'Enter your name so your submission is attributed correctly.'}</p>
               <p>• Use the four-digit PIN supplied by your instructor.</p>
-              <p>• If the quiz is hidden or unpublished, you’ll see a clear notice immediately.</p>
+              <p>• If the session is not active yet, you will see a clear message and can retry when it starts.</p>
             </div>
           </div>
 
           <form onSubmit={handleUnlock} className="space-y-4">
-            <label className="block text-sm font-medium text-slate-300">
-              Student Name
-              <input
-                value={studentName}
-                onChange={(e) => setStudentName(e.target.value)}
-                placeholder="Enter your name"
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
-                required
-              />
-            </label>
+            {profileName ? (
+              <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-100">
+                Joining as <span className="font-semibold">{profileName}</span>
+              </div>
+            ) : (
+              <label className="block text-sm font-medium text-slate-300">
+                Student Name
+                <input
+                  value={studentName}
+                  onChange={(e) => setStudentName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                  required
+                />
+              </label>
+            )}
 
             <label className="block text-sm font-medium text-slate-300">
               Access Code

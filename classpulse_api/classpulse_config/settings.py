@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +21,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-u4evi2i_qtb&-h&huckon)q&ft-f-ky51v%vs0-jh8c!l14lpf"
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-u4evi2i_qtb&-h&huckon)q&ft-f-ky51v%vs0-jh8c!l14lpf',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').strip().lower() in {'1', 'true', 'yes', 'on'}
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.onrender.com']
 
 
 # Application definition
@@ -125,8 +129,31 @@ STATIC_URL = "static/"
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Allow local React dev servers to talk to our API
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Default Vite/React port
-    "http://localhost:3000",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
 ]
+
+if 'LIVE_FRONTEND_URL' in os.environ:
+    CORS_ALLOWED_ORIGINS.append(os.environ['LIVE_FRONTEND_URL'])
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:5174',
+    'http://127.0.0.1:5174',
+]
+
+if 'LIVE_FRONTEND_URL' in os.environ:
+    CSRF_TRUSTED_ORIGINS.append(os.environ['LIVE_FRONTEND_URL'])
+
+# Keep lecture sessions stable during long live classes.
+SESSION_COOKIE_AGE = 60 * 60 * 24
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'quiz.authentication.BearerOrTokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+}

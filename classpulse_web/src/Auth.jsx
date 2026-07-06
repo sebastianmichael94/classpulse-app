@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from './apiClient';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -21,7 +22,7 @@ export default function Auth() {
     setMessage({ text: '', isError: false });
     
     // Set up urls mapping directly to our Django backend pipes
-    const baseUrl = 'http://127.0.0.1:8000/api/auth/';
+    const baseUrl = `${API_BASE_URL}/api/auth/`;
     const endpoint = isLogin ? 'login/' : 'register/';
     
     // Format payload to match our backend serializers expect fields

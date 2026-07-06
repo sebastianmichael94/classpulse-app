@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_BASE_URL } from './apiClient';
 
 const QUESTION_TYPES = [
   'Multiple Choice',
@@ -15,7 +16,7 @@ const QUESTION_TYPES = [
   'Text (no question)',
 ];
 
-export default function QuizCreator({ onSaveQuestion }) {
+export default function QuizCreator({ onSaveQuestion, questionList = [], onDeleteQuestion, onReorderQuestion }) {
   const [title, setTitle] = useState('');
   const [questionText, setQuestionText] = useState('');
   const [type, setType] = useState('Multiple Choice');
@@ -33,6 +34,7 @@ export default function QuizCreator({ onSaveQuestion }) {
   const [questionImageUrl, setQuestionImageUrl] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState('');
+  const [editingQuestionIndex, setEditingQuestionIndex] = useState(null);
 
   const isOptionType = ['Multiple Choice', 'Multiple Answers', 'Multiple Dropdowns'].includes(type);
   const isPeerUpvotingType = ['Essay Question', 'Fill In the Blank', 'Fill In Multiple Blanks'].includes(type);
@@ -104,7 +106,7 @@ export default function QuizCreator({ onSaveQuestion }) {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch('http://127.0.0.1:8000/api/assets/question-image/', {
+      const response = await fetch(`${API_BASE_URL}/api/assets/question-image/`, {
         method: 'POST',
         body: formData,
       });
@@ -141,6 +143,68 @@ export default function QuizCreator({ onSaveQuestion }) {
     const updated = [...options];
     updated[index] = value;
     setOptions(updated);
+  };
+
+  const resetFormState = () => {
+    setTitle('');
+    setQuestionText('');
+    setType('Multiple Choice');
+    setOptions(['', '']);
+    setCorrectOption(0);
+    setCorrectOptions([]);
+    setFormula('');
+    setVariableMin('1');
+    setVariableMax('10');
+    setMatchingPromptsText('');
+    setMatchingTargetsText('');
+    setAllowPeerUpvoting(false);
+    setQuestionImageUrl('');
+    setImageUploadError('');
+    setEditingQuestionIndex(null);
+  };
+
+  const loadQuestionForEditing = (question, index) => {
+    const nextType = String(question?.question_type || 'Multiple Choice').trim();
+    const interaction = question?.interaction_data || {};
+
+    setEditingQuestionIndex(index);
+    setTitle(question?.question_title || question?.title || '');
+    setQuestionText(question?.question_text || question?.questionText || '');
+    setType(nextType);
+    setQuestionImageUrl(question?.question_image_url || question?.question_image || '');
+    setAllowPeerUpvoting(Boolean(question?.allow_peer_upvoting));
+
+    if (['Multiple Choice', 'multiple_choice_question', 'Multiple Answers', 'Multiple Dropdowns', 'True/False', 'true_false_question'].includes(nextType)) {
+      const configuredOptions = Array.isArray(interaction?.options) && interaction.options.length >= 2
+        ? interaction.options
+        : (nextType === 'True/False' || nextType === 'true_false_question' ? ['True', 'False'] : ['', '']);
+      setOptions(configuredOptions);
+      setCorrectOption(Number(interaction?.correct_index ?? 0));
+      setCorrectOptions(Array.isArray(interaction?.correct_indices) ? interaction.correct_indices : []);
+    } else {
+      setOptions(['', '']);
+      setCorrectOption(0);
+      setCorrectOptions([]);
+    }
+
+    if (nextType === 'Formula Question' || nextType === 'formula_question') {
+      const xVariable = interaction?.variables?.x || {};
+      setFormula(interaction?.formula || '');
+      setVariableMin(String(xVariable?.min ?? '1'));
+      setVariableMax(String(xVariable?.max ?? '10'));
+    } else {
+      setFormula('');
+      setVariableMin('1');
+      setVariableMax('10');
+    }
+
+    if (nextType === 'Matching') {
+      setMatchingPromptsText(Array.isArray(interaction?.premises) ? interaction.premises.join('\n') : '');
+      setMatchingTargetsText(Array.isArray(interaction?.targets) ? interaction.targets.join('\n') : '');
+    } else {
+      setMatchingPromptsText('');
+      setMatchingTargetsText('');
+    }
   };
 
   const handleFormSubmit = (e) => {
@@ -184,50 +248,37 @@ export default function QuizCreator({ onSaveQuestion }) {
       };
     }
 
-    onSaveQuestion(configuration);
-    setTitle('');
-    setQuestionText('');
-    setType('Multiple Choice');
-    setOptions(['', '']);
-    setCorrectOption(0);
-    setCorrectOptions([]);
-    setFormula('');
-    setVariableMin('1');
-    setVariableMax('10');
-    setMatchingPromptsText('');
-    setMatchingTargetsText('');
-    setAllowPeerUpvoting(false);
-    setQuestionImageUrl('');
-    setImageUploadError('');
+    onSaveQuestion(configuration, editingQuestionIndex);
+    resetFormState();
   };
 
   return (
-    <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl text-slate-100 transition-all duration-300">
+    <div className="w-full max-w-7xl bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl text-slate-100 transition-all duration-300">
       
       <div className="mb-6 border-b border-slate-800 pb-4">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
-          <h2 className="text-lg font-semibold text-slate-200 tracking-tight">Step 2: Question Canvas Compiler</h2>
+          <h2 className="text-lg font-semibold text-slate-200 tracking-tight">Step 2: Write Your Questions</h2>
         </div>
-        <p className="text-xs text-slate-400 mt-1">Compile individual algorithmic or plain-text evaluation matrices to the active array queue.</p>
+        <p className="text-xs text-slate-400 mt-1">Create each question, choose its format, and add grading rubrics where needed.</p>
       </div>
 
-      <form onSubmit={handleFormSubmit} className="space-y-6">
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <form onSubmit={handleFormSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Question Identity Label</label>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Question Title</label>
             <input 
               type="text" 
               value={title} 
               onChange={(e) => setTitle(e.target.value)} 
-              placeholder="e.g., Question 1: CAP Theorem Balance" 
+              placeholder="e.g., Question 1: Main idea of today's lecture" 
               className="w-full px-4 py-3 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 font-medium text-sm placeholder-slate-600 transition-all" 
               required 
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Structural Component Matrix</label>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Quiz Question Layout</label>
             <select 
               value={type} 
               onChange={(e) => handleTypeChange(e.target.value)}
@@ -238,21 +289,21 @@ export default function QuizCreator({ onSaveQuestion }) {
               ))}
             </select>
           </div>
-        </div>
+          </div>
 
-        <div>
+          <div>
           <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Question Prompt String (Supports LaTeX $$...$$)</label>
           <textarea 
             rows="3" 
             value={questionText} 
             onChange={(e) => setQuestionText(e.target.value)} 
-            placeholder={type === 'Formula Question' ? "What is the result when evaluating $$f(x) = x^2 + 5$$?" : "Type the structural assessment question prompt here..."} 
+            placeholder={type === 'Formula Question' ? "What is the result when evaluating $$f(x) = x^2 + 5$$?" : "Type the question students should answer..."} 
             className="w-full p-4 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm font-medium resize-none placeholder-slate-600 transition-all" 
             required 
           />
-        </div>
+          </div>
 
-        <div>
+          <div>
           <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Question Diagram / Image Attachment</label>
           <div
             onDragOver={(event) => event.preventDefault()}
@@ -293,9 +344,9 @@ export default function QuizCreator({ onSaveQuestion }) {
               <p className="mt-2 text-xs text-rose-300">{imageUploadError}</p>
             ) : null}
           </div>
-        </div>
+          </div>
 
-        {isPeerUpvotingType ? (
+          {isPeerUpvotingType ? (
           <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-4 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-cyan-200">👥 Enable Student Peer Upvoting & Live Feed</p>
@@ -312,11 +363,11 @@ export default function QuizCreator({ onSaveQuestion }) {
               <div className="absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform peer-checked:translate-x-5" />
             </label>
           </div>
-        ) : null}
+          ) : null}
 
-        {isOptionType && (
+          {isOptionType && (
           <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
-            <span className="block text-xs font-semibold text-indigo-400 tracking-wider">CHOICE CONFIGURATION MATRIX</span>
+            <span className="block text-xs font-semibold text-indigo-400 tracking-wider">CHOICE CONFIGURATION PANEL</span>
             {options.map((option, index) => (
               <div key={index} className="flex items-center gap-4 group">
                 {type === 'Multiple Answers' ? (
@@ -366,9 +417,9 @@ export default function QuizCreator({ onSaveQuestion }) {
               <p className="text-[11px] text-slate-500">Use bracket tokens in prompt text like [blank1], [blank2]. These options populate each dropdown.</p>
             ) : null}
           </div>
-        )}
+          )}
 
-        {type === 'True/False' && (
+          {type === 'True/False' && (
           <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
             <span className="block text-xs font-semibold text-amber-400 tracking-wider">TRUE / FALSE CONSTANT KEY EVALUATION</span>
             {options.slice(0, 2).map((option, index) => (
@@ -384,9 +435,9 @@ export default function QuizCreator({ onSaveQuestion }) {
               </div>
             ))}
           </div>
-        )}
+          )}
 
-        {type === 'Matching' && (
+          {type === 'Matching' && (
           <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
             <span className="block text-xs font-semibold text-cyan-400 tracking-wider">MATCHING PAIR CONFIGURATION</span>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -412,9 +463,9 @@ export default function QuizCreator({ onSaveQuestion }) {
               </div>
             </div>
           </div>
-        )}
+          )}
 
-        {type === 'Formula Question' && (
+          {type === 'Formula Question' && (
           <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
             <span className="block text-xs font-semibold text-emerald-400 tracking-wider">VARIABLE EVALUATION PARSER CONFIGURATION</span>
             <div className="grid grid-cols-2 gap-4">
@@ -438,7 +489,7 @@ export default function QuizCreator({ onSaveQuestion }) {
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 mb-2 tracking-wide">ALGEBRAIC SYNTAX FORMULA STRING (EVAL MATRIX)</label>
+              <label className="block text-[10px] font-medium text-slate-400 mb-2 tracking-wide">ALGEBRAIC SYNTAX FORMULA STRING (EVALUATION RULE)</label>
               <input 
                 type="text" 
                 value={formula} 
@@ -449,17 +500,95 @@ export default function QuizCreator({ onSaveQuestion }) {
               />
             </div>
           </div>
-        )}
+          )}
 
-        <div className="flex justify-end pt-2">
-          <button 
-            type="submit" 
-            className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 px-8 rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-xs tracking-widest uppercase active:scale-[0.98]"
-          >
-            Compile Framework Element
-          </button>
-        </div>
-      </form>
+          <div className="flex flex-col gap-3 pt-2 md:flex-row md:justify-end">
+            {editingQuestionIndex !== null ? (
+              <button
+                type="button"
+                onClick={resetFormState}
+                className="w-full md:w-auto rounded-xl border border-slate-700 bg-slate-950 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-200 transition-all hover:border-slate-500"
+              >
+                Cancel Edit
+              </button>
+            ) : null}
+            <button 
+              type="submit" 
+              className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 px-8 rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-xs tracking-widest uppercase active:scale-[0.98]"
+            >
+              {editingQuestionIndex !== null ? 'Update Question' : 'Compile Framework Element'}
+            </button>
+          </div>
+        </form>
+
+        <aside className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5">
+          <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Quiz Preview & Edit Summary</p>
+              <p className="mt-1 text-xs text-slate-400">Student-side order and rendering preview before publishing.</p>
+            </div>
+            <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-300">
+              {questionList.length} Items
+            </span>
+          </div>
+
+          {questionList.length === 0 ? (
+            <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-sm text-slate-400">
+              Questions will appear here as you compile them.
+            </div>
+          ) : (
+            <div className="max-h-[72vh] space-y-3 overflow-y-auto pr-1">
+              {questionList.map((question, index) => (
+                <div key={`${question.question_title || 'q'}-${index}`} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-300">Question {index + 1}</p>
+                      <h4 className="mt-1 text-sm font-semibold text-slate-100">{question.question_title || `Question ${index + 1}`}</h4>
+                      <p className="mt-1 text-xs text-slate-400">Type: {question.question_type || 'Unknown'}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onReorderQuestion?.(index, index - 1)}
+                        disabled={index === 0}
+                        className="rounded-lg border border-slate-600 bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition-all hover:border-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onReorderQuestion?.(index, index + 1)}
+                        disabled={index === questionList.length - 1}
+                        className="rounded-lg border border-slate-600 bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition-all hover:border-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => loadQuestionForEditing(question, index)}
+                        className="rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-1.5 text-xs font-semibold text-cyan-200 transition-all hover:bg-cyan-500/20"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteQuestion?.(index)}
+                        className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-200 transition-all hover:bg-rose-500/20"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/70 p-3">
+                    <p className="text-xs leading-6 text-slate-300">{question.question_text || 'No question text provided yet.'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+import { API_BASE_URL } from './apiClient';
 
 function MathText({ value }) {
   if (typeof value !== 'string') return null;
@@ -54,7 +55,7 @@ export default function StudentQuizGateway({ onQuizLoaded }) {
     setError('');
 
     try {
-      const response = await axios.post('http://127.0.0.1:8000/api/quizzes/unlock/', {
+      const response = await axios.post(`${API_BASE_URL}/api/quizzes/unlock/`, {
         access_code: accessCode,
       });
 
@@ -64,7 +65,9 @@ export default function StudentQuizGateway({ onQuizLoaded }) {
       }
     } catch (err) {
       if (err.response?.status === 404) {
-        setError('Invalid Code or Quiz Hidden');
+        setError('That access code is invalid.');
+      } else if (err.response?.status === 403) {
+        setError(String(err.response?.data?.error || 'This quiz session is not available right now.'));
       } else {
         setError('Unable to unlock quiz right now.');
       }

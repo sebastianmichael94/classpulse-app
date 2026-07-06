@@ -9,16 +9,19 @@ from django.dispatch import receiver
 
 class Quiz(models.Model):
     STATUS_CHOICES = [
-        ('DRAFT', 'Draft'),
-        ('PUBLISHED', 'Published'),
+        ('READY', 'Ready'),
+        ('ACTIVE', 'Active'),
+        ('COMPLETED', 'Completed'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
     time_limit_minutes = models.PositiveIntegerField(default=15)
+    duration_minutes = models.PositiveIntegerField(default=10)
+    started_at = models.DateTimeField(null=True, blank=True)
     instructions = models.TextField(blank=True, null=True)
     access_code = models.CharField(max_length=6, unique=True, blank=True)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='DRAFT')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='READY')
     created_by = models.ForeignKey(User, related_name='created_quizzes', on_delete=models.SET_NULL, blank=True, null=True)
     is_shared_with_students = models.BooleanField(default=False)
     shared_insight_text = models.TextField(blank=True, null=True)
@@ -41,8 +44,16 @@ class UserProfile(models.Model):
         ('professor', 'Professor'),
     ]
 
+    SECURITY_QUESTION_CHOICES = [
+        ('first_pet', "What was your first pet's name?"),
+        ('birth_city', 'What city were you born in?'),
+        ('first_school', 'What was the name of your first school?'),
+    ]
+
     user = models.OneToOneField(User, related_name='profile', on_delete=models.CASCADE)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
+    security_question = models.CharField(max_length=50, choices=SECURITY_QUESTION_CHOICES, blank=True, default='')
+    security_answer = models.CharField(max_length=255, blank=True, default='')
 
     def __str__(self):
         return f"{self.user.username} ({self.role})"
@@ -129,6 +140,7 @@ class PeerResponse(models.Model):
 
 class CustomAnalyticsPrompt(models.Model):
     quiz = models.ForeignKey(Quiz, related_name='custom_prompts', on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, related_name='custom_prompts', on_delete=models.SET_NULL, null=True, blank=True)
     prompt_text = models.TextField()
     response_text = models.TextField()
     is_announcement = models.BooleanField(default=False)

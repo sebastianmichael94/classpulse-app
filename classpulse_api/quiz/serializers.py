@@ -9,6 +9,12 @@ class RegisterSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     role = serializers.ChoiceField(choices=['student', 'professor'])
+    security_question = serializers.ChoiceField(
+        choices=['first_pet', 'birth_city', 'first_school'],
+        required=False,
+        allow_null=True,
+    )
+    security_answer = serializers.CharField(max_length=255, required=False, allow_blank=True)
 
 
 class LoginSerializer(serializers.Serializer):
@@ -36,7 +42,21 @@ class QuizSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Quiz
-        fields = ['id', 'title', 'time_limit_minutes', 'instructions', 'access_code', 'status', 'is_shared_with_students', 'shared_insight_text', 'shared_insight_updated_at', 'questions', 'created_at']
+        fields = [
+            'id',
+            'title',
+            'time_limit_minutes',
+            'duration_minutes',
+            'started_at',
+            'instructions',
+            'access_code',
+            'status',
+            'is_shared_with_students',
+            'shared_insight_text',
+            'shared_insight_updated_at',
+            'questions',
+            'created_at',
+        ]
 
     def create(self, validated_data):
         questions_data = validated_data.pop('questions')

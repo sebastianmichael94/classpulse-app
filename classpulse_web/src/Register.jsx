@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from './apiClient';
+
+const SECURITY_QUESTIONS = [
+  { value: 'first_pet', label: "What was your first pet's name?" },
+  { value: 'birth_city', label: 'What city were you born in?' },
+  { value: 'first_school', label: 'What was the name of your first school?' },
+];
 
 function readPreferredRole(search) {
   const params = new URLSearchParams(search || '');
@@ -19,6 +26,8 @@ export default function Register() {
     email: '',
     password: '',
     role: initialRole,
+    securityQuestion: SECURITY_QUESTIONS[0].value,
+    securityAnswer: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -34,7 +43,7 @@ export default function Register() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/auth/register/', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/register/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -46,6 +55,8 @@ export default function Register() {
           first_name: formData.firstName,
           last_name: formData.lastName,
           role: formData.role,
+          security_question: formData.role === 'student' ? formData.securityQuestion : undefined,
+          security_answer: formData.role === 'student' ? formData.securityAnswer : undefined,
         }),
       });
 
@@ -134,6 +145,37 @@ export default function Register() {
             className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
             required
           />
+
+          {formData.role === 'student' ? (
+            <>
+              <label className="block text-sm text-slate-300">
+                Security question
+                <select
+                  name="securityQuestion"
+                  value={formData.securityQuestion}
+                  onChange={handleChange}
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                  required
+                >
+                  {SECURITY_QUESTIONS.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <input
+                type="text"
+                name="securityAnswer"
+                value={formData.securityAnswer}
+                onChange={handleChange}
+                placeholder="Security answer"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                required
+              />
+            </>
+          ) : null}
 
           {error ? <p className="text-sm text-rose-300">{error}</p> : null}
 

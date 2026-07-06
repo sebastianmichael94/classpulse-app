@@ -1,20 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import LiveAnalytics from './LiveAnalytics';
-
-const AUTH_SESSION_KEY = 'classpulse.authSession';
-
-function readAuthToken() {
-  try {
-    const rawValue = localStorage.getItem(AUTH_SESSION_KEY);
-    if (!rawValue) {
-      return null;
-    }
-    const parsed = JSON.parse(rawValue);
-    return parsed?.token || null;
-  } catch {
-    return null;
-  }
-}
+import { API_BASE_URL, authFetch, readAccessToken } from './apiClient';
 
 function formatDate(value) {
   if (!value) {
@@ -31,9 +17,9 @@ export default function ProfessorHistoryVault() {
   const [historyRows, setHistoryRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [selectedQuizId, setSelectedQuizId] = useState(null);
+  const [selectedQuiz, setSelectedQuiz] = useState(null);
 
-  const authToken = useMemo(() => readAuthToken(), []);
+  const authToken = useMemo(() => readAccessToken(), []);
 
   useEffect(() => {
     const loadHistory = async () => {
@@ -46,11 +32,7 @@ export default function ProfessorHistoryVault() {
       setError('');
 
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/professor/quizzes/history/', {
-          headers: {
-            Authorization: `Token ${authToken}`,
-          },
-        });
+        const response = await authFetch(`${API_BASE_URL}/api/professor/quizzes/history/`);
 
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -86,6 +68,8 @@ export default function ProfessorHistoryVault() {
           <thead className="bg-slate-950/80">
             <tr>
               <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Quiz Title</th>
+              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Access Code</th>
+              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Status</th>
               <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Date Conducted</th>
               <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Submissions</th>
               <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">AI Summary Cache</th>
@@ -96,6 +80,8 @@ export default function ProfessorHistoryVault() {
             {historyRows.length ? historyRows.map((row) => (
               <tr key={row.id} className="border-t border-slate-800 bg-slate-900/70">
                 <td className="px-4 py-3 text-sm font-semibold text-slate-100">{row.title}</td>
+                <td className="px-4 py-3 text-sm text-slate-300 font-mono">{row.access_code || 'N/A'}</td>
+                <td className="px-4 py-3 text-sm text-slate-300">{row.status || 'UNKNOWN'}</td>
                 <td className="px-4 py-3 text-sm text-slate-300">{formatDate(row.created_at)}</td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-200">
@@ -106,7 +92,7 @@ export default function ProfessorHistoryVault() {
                 <td className="px-4 py-3">
                   <button
                     type="button"
-                    onClick={() => setSelectedQuizId(row.id)}
+                    onClick={() => setSelectedQuiz(row)}
                     className="rounded-lg border border-violet-400/40 bg-violet-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-violet-200 transition-all hover:bg-violet-500/20"
                   >
                     🔍 Open Archives
@@ -115,26 +101,29 @@ export default function ProfessorHistoryVault() {
               </tr>
             )) : (
               <tr>
-                <td colSpan={5} className="px-4 py-5 text-sm text-slate-400 bg-slate-900/70">No historical quizzes found for this professor account yet.</td>
+                <td colSpan={7} className="px-4 py-5 text-sm text-slate-400 bg-slate-900/70">No historical quizzes found for this professor account yet.</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {selectedQuizId ? (
+      {selectedQuiz ? (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="mx-auto max-w-6xl">
             <div className="mb-3 flex justify-end">
               <button
                 type="button"
-                onClick={() => setSelectedQuizId(null)}
+                onClick={() => setSelectedQuiz(null)}
                 className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200 transition-all hover:border-rose-400/50 hover:text-rose-300"
               >
                 Close Archive
               </button>
             </div>
-            <LiveAnalytics quizId={selectedQuizId} staticMode />
+            <LiveAnalytics
+              quizId={selectedQuiz.id}
+              accessCode={selectedQuiz.access_code || ''}
+            />
           </div>
         </div>
       ) : null}

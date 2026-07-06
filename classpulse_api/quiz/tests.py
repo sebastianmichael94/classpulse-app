@@ -12,7 +12,7 @@ class AnalyticsEndpointTests(TestCase):
             title='AI Basics',
             time_limit_minutes=10,
             instructions='Test quiz',
-            status='PUBLISHED',
+            status='READY',
         )
         self.question = Question.objects.create(
             quiz=self.quiz,

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-
-const AUTH_SESSION_KEY = 'classpulse.authSession';
+import { API_BASE_URL, persistAuthSession } from './apiClient';
 
 function readPreferredRole(search) {
   const params = new URLSearchParams(search || '');
@@ -29,7 +28,7 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/auth/login/', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -46,8 +45,9 @@ export default function Login() {
         token: payload.token,
         user: payload.user,
         savedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + (24 * 60 * 60 * 1000)).toISOString(),
       };
-      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionPayload));
+      persistAuthSession(sessionPayload);
 
       if (payload?.user?.role === 'professor') {
         navigate('/instructor', { replace: true });

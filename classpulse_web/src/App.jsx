@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import LandingPage from './LandingPage';
 import Login from './Login';
@@ -12,27 +12,22 @@ import QuizCreator from './QuizCreator';
 import ProfessorDashboard from './ProfessorDashboard';
 import LiveAnalytics from './LiveAnalytics';
 import ProfessorHistoryVault from './ProfessorHistoryVault';
+import {
+  AUTH_SESSION_KEY,
+  API_BASE_URL,
+  authFetch,
+  buildAuthHeaders,
+  initializeHttpAuthFromStorage,
+  readAuthSession,
+  setupAxiosAuthInterceptor,
+} from './apiClient';
 
 const STUDENT_SESSION_KEY = 'classpulse.activeStudentSession';
-const AUTH_SESSION_KEY = 'classpulse.authSession';
+const ACTIVE_QUIZ_KEY = 'classpulse.activeQuizId';
+const ACTIVE_QUIZ_PAYLOAD_KEY = 'classpulse.activeQuizPayload';
 
-function readAuthSession() {
-  try {
-    const rawValue = localStorage.getItem(AUTH_SESSION_KEY);
-    if (!rawValue) {
-      return null;
-    }
-
-    const parsed = JSON.parse(rawValue);
-    if (!parsed?.token || !parsed?.user?.role) {
-      return null;
-    }
-
-    return parsed;
-  } catch {
-    return null;
-  }
-}
+setupAxiosAuthInterceptor();
+initializeHttpAuthFromStorage();
 
 function normalizeQuizPayload(quiz) {
   if (!quiz) {
@@ -98,6 +93,54 @@ function clearStoredStudentSession() {
   localStorage.removeItem(STUDENT_SESSION_KEY);
 }
 
+function readStoredActiveQuizId() {
+  try {
+    const value = localStorage.getItem(ACTIVE_QUIZ_KEY);
+    return value ? String(value).trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredActiveQuizId(quizId) {
+  const normalizedQuizId = String(quizId || '').trim();
+  if (!normalizedQuizId) {
+    return;
+  }
+
+  localStorage.setItem(ACTIVE_QUIZ_KEY, normalizedQuizId);
+}
+
+function clearStoredActiveQuizId() {
+  localStorage.removeItem(ACTIVE_QUIZ_KEY);
+}
+
+function readStoredActiveQuizPayload() {
+  try {
+    const rawValue = localStorage.getItem(ACTIVE_QUIZ_PAYLOAD_KEY);
+    if (!rawValue) {
+      return null;
+    }
+
+    return normalizeQuizPayload(JSON.parse(rawValue));
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredActiveQuizPayload(quiz) {
+  const normalizedQuiz = normalizeQuizPayload(quiz);
+  if (!normalizedQuiz?.id) {
+    return;
+  }
+
+  localStorage.setItem(ACTIVE_QUIZ_PAYLOAD_KEY, JSON.stringify(normalizedQuiz));
+}
+
+function clearStoredActiveQuizPayload() {
+  localStorage.removeItem(ACTIVE_QUIZ_PAYLOAD_KEY);
+}
+
 function ExamRoute({ activeQuiz, studentName, onSubmitSuccess, isSessionHydrating }) {
   const { quizId } = useParams();
 
@@ -112,34 +155,125 @@ function ExamRoute({ activeQuiz, studentName, onSubmitSuccess, isSessionHydratin
   return <ExamPlayer quiz={activeQuiz} studentName={studentName} onSubmitSuccess={onSubmitSuccess} />;
 }
 
+function getInitialAuthState() {
+  const session = readAuthSession();
+  const isAuthenticated = Boolean(session?.token);
+
+  return {
+    session,
+    isAuthenticated,
+    user: session?.user || null,
+  };
+}
+
 function AppRoutes() {
   const navigate = useNavigate();
-  const authSession = readAuthSession();
-  const userRole = authSession?.user?.role;
+  const location = useLocation();
+  const [authState, setAuthState] = useState(() => getInitialAuthState());
+  const userRole = authState.user?.role;
   const isProfessor = userRole === 'professor';
-  const isStudent = userRole === 'student';
-  const [activeQuiz, setActiveQuiz] = useState(null);
+  const [activeQuiz, setActiveQuiz] = useState(() => readStoredActiveQuizPayload());
   const [studentName, setStudentName] = useState('');
   const [submissionResult, setSubmissionResult] = useState(null);
   const [isSessionHydrating, setIsSessionHydrating] = useState(true);
   const [quizHeader, setQuizHeader] = useState({ title: '', timeLimit: 15, instructions: '' });
   const [activeQuestionList, setActiveQuestionList] = useState([]);
-  const [publishedQuizId, setPublishedQuizId] = useState(null);
+  const [publishedQuizId, setPublishedQuizId] = useState(() => readStoredActiveQuizId());
   const [publishedQuizzes, setPublishedQuizzes] = useState([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
   const [professorView, setProfessorView] = useState('live');
 
   useEffect(() => {
+    initializeHttpAuthFromStorage();
+    const nextAuthState = getInitialAuthState();
+
+    setAuthState((prev) => {
+      const previousToken = String(prev?.session?.token || '');
+      const nextToken = String(nextAuthState?.session?.token || '');
+      const previousRole = String(prev?.user?.role || '');
+      const nextRole = String(nextAuthState?.user?.role || '');
+
+      if (
+        prev?.isAuthenticated === nextAuthState.isAuthenticated
+        && previousToken === nextToken
+        && previousRole === nextRole
+      ) {
+        return prev;
+      }
+
+      return nextAuthState;
+    });
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const handleStorageSync = (event) => {
+      if (event.key && event.key !== AUTH_SESSION_KEY && event.key !== ACTIVE_QUIZ_KEY && event.key !== ACTIVE_QUIZ_PAYLOAD_KEY) {
+        return;
+      }
+
+      initializeHttpAuthFromStorage();
+      setAuthState(getInitialAuthState());
+
+      if (!event.key || event.key === ACTIVE_QUIZ_KEY) {
+        setPublishedQuizId(readStoredActiveQuizId());
+      }
+
+      if (!event.key || event.key === ACTIVE_QUIZ_PAYLOAD_KEY) {
+        setActiveQuiz(readStoredActiveQuizPayload());
+      }
+    };
+
+    window.addEventListener('storage', handleStorageSync);
+    return () => {
+      window.removeEventListener('storage', handleStorageSync);
+    };
+  }, []);
+
+  useEffect(() => {
     const storedSession = readStoredStudentSession();
+    const storedProfessorQuiz = readStoredActiveQuizPayload();
 
     if (storedSession?.quiz && storedSession?.studentName) {
       setActiveQuiz(storedSession.quiz);
       setStudentName(storedSession.studentName);
+    } else if (storedProfessorQuiz) {
+      setActiveQuiz(storedProfessorQuiz);
     }
 
     setIsSessionHydrating(false);
   }, []);
+
+  useEffect(() => {
+    const recoverProfessorQuiz = async () => {
+      if (!isProfessor || !publishedQuizId) {
+        return;
+      }
+
+      if (activeQuiz && String(activeQuiz?.id) === String(publishedQuizId)) {
+        return;
+      }
+
+      try {
+        const response = await authFetch(`${API_BASE_URL}/api/quizzes/${publishedQuizId}/`);
+        if (!response.ok) {
+          throw new Error('Unable to restore active quiz context.');
+        }
+
+        const payload = await response.json();
+        const normalizedQuiz = normalizeQuizPayload(payload);
+        setActiveQuiz(normalizedQuiz);
+        writeStoredActiveQuizPayload(normalizedQuiz);
+        setProfessorView('live');
+      } catch {
+        clearStoredActiveQuizId();
+        clearStoredActiveQuizPayload();
+        setPublishedQuizId(null);
+      }
+    };
+
+    recoverProfessorQuiz();
+  }, [isProfessor, publishedQuizId, activeQuiz]);
 
   const handleQuizLoaded = ({ quiz, studentName: enteredName }) => {
     const normalizedQuiz = normalizeQuizPayload(quiz);
@@ -161,6 +295,50 @@ function AppRoutes() {
     setStudentName('');
   };
 
+  const handleLiveQuizSessionStateChange = ({ quizId, status, startedAt, durationMinutes }) => {
+    const normalizedQuizId = String(quizId || '').trim();
+    const normalizedStatus = String(status || '').trim().toUpperCase();
+
+    if (!normalizedQuizId) {
+      return;
+    }
+
+    let nextQuizPayload = null;
+    setActiveQuiz((prev) => {
+      if (!prev || String(prev?.id) !== normalizedQuizId) {
+        return prev;
+      }
+
+      nextQuizPayload = {
+        ...prev,
+        status: normalizedStatus,
+        quiz_status: normalizedStatus,
+        started_at: startedAt === undefined ? prev.started_at : startedAt,
+        duration_minutes: durationMinutes === undefined ? prev.duration_minutes : durationMinutes,
+      };
+
+      return nextQuizPayload;
+    });
+
+    setPublishedQuizId(normalizedQuizId);
+    setProfessorView('live');
+
+    if (normalizedStatus === 'ACTIVE') {
+      writeStoredActiveQuizId(normalizedQuizId);
+      if (nextQuizPayload) {
+        writeStoredActiveQuizPayload(nextQuizPayload);
+      }
+      return;
+    }
+
+    if (normalizedStatus === 'READY' || normalizedStatus === 'COMPLETED' || normalizedStatus === 'STOPPED') {
+      if (String(readStoredActiveQuizId() || '') === normalizedQuizId) {
+        clearStoredActiveQuizId();
+        clearStoredActiveQuizPayload();
+      }
+    }
+  };
+
   const handleHeaderSave = (headerData) => {
     setQuizHeader(headerData);
     setActiveQuiz((prev) => ({
@@ -172,9 +350,9 @@ function AppRoutes() {
     }));
   };
 
-  const handleSaveQuestion = (questionConfig) => {
+  const handleSaveQuestion = (questionConfig, editIndex = null) => {
     const normalizedQuestion = {
-      order_index: activeQuestionList.length + 1,
+      order_index: 1,
       question_title: questionConfig.question_title || questionConfig.title || 'Untitled Question',
       question_text: questionConfig.question_text || questionConfig.questionText || '',
       question_image: questionConfig.question_image || null,
@@ -184,7 +362,56 @@ function AppRoutes() {
       allow_peer_upvoting: Boolean(questionConfig.allow_peer_upvoting),
     };
 
-    setActiveQuestionList((prev) => [...prev, normalizedQuestion]);
+    setActiveQuestionList((prev) => {
+      const next = [...prev];
+      if (Number.isInteger(editIndex) && editIndex >= 0 && editIndex < next.length) {
+        next[editIndex] = {
+          ...next[editIndex],
+          ...normalizedQuestion,
+        };
+      } else {
+        next.push(normalizedQuestion);
+      }
+
+      return next.map((item, index) => ({
+        ...item,
+        order_index: index + 1,
+      }));
+    });
+  };
+
+  const handleDeleteQuestion = (deleteIndex) => {
+    setActiveQuestionList((prev) => (
+      prev
+        .filter((_, index) => index !== deleteIndex)
+        .map((item, index) => ({
+          ...item,
+          order_index: index + 1,
+        }))
+    ));
+  };
+
+  const handleReorderQuestion = (fromIndex, toIndex) => {
+    setActiveQuestionList((prev) => {
+      if (
+        fromIndex === toIndex
+        || fromIndex < 0
+        || toIndex < 0
+        || fromIndex >= prev.length
+        || toIndex >= prev.length
+      ) {
+        return prev;
+      }
+
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+
+      return next.map((item, index) => ({
+        ...item,
+        order_index: index + 1,
+      }));
+    });
   };
 
   const handlePublish = async () => {
@@ -200,8 +427,9 @@ function AppRoutes() {
       const payload = {
         title: quizHeader.title,
         time_limit_minutes: Number(quizHeader.timeLimit || 15),
+        duration_minutes: Number(quizHeader.timeLimit || 15),
         instructions: quizHeader.instructions || '',
-        status: 'PUBLISHED',
+        status: 'READY',
         questions: activeQuestionList.map((question, index) => ({
           order_index: index + 1,
           question_title: question.question_title || question.title,
@@ -213,14 +441,14 @@ function AppRoutes() {
         })),
       };
 
-      const authSession = readAuthSession();
-      const authHeaders = authSession?.token ? { Authorization: `Token ${authSession.token}` } : undefined;
-      const response = await axios.post('http://127.0.0.1:8000/api/quizzes/', payload, {
-        headers: authHeaders,
+      const response = await axios.post(`${API_BASE_URL}/api/quizzes/`, payload, {
+        headers: buildAuthHeaders(),
       });
       const publishedQuiz = normalizeQuizPayload(response.data);
       setPublishedQuizId(publishedQuiz.id);
       setActiveQuiz(publishedQuiz);
+      writeStoredActiveQuizId(publishedQuiz.id);
+      writeStoredActiveQuizPayload(publishedQuiz);
       setPublishedQuizzes((prev) => {
         const withoutCurrent = prev.filter((quiz) => String(quiz.id) !== String(publishedQuiz.id));
         return [publishedQuiz, ...withoutCurrent];
@@ -246,9 +474,9 @@ function AppRoutes() {
           <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100">
             <div className="mx-auto flex max-w-7xl flex-col gap-6">
               <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl">
-                <p className="text-xs font-mono uppercase tracking-[0.3em] text-cyan-400">ClassPulse Executive Studio</p>
-                <h1 className="mt-2 text-3xl font-semibold text-white">Professor orchestration layer</h1>
-                <p className="mt-2 max-w-2xl text-sm text-slate-400">Compiled questions now flow straight into the publish pipeline and live analytics update from the backend as submissions arrive.</p>
+                <p className="text-xs font-mono uppercase tracking-[0.3em] text-cyan-400">Live Class Controller</p>
+                <h1 className="mt-2 text-3xl font-semibold text-white">Professor Control Center</h1>
+                <p className="mt-2 max-w-2xl text-sm text-slate-400">Use the Quiz Publishing Panel to finalize questions and monitor live classroom analytics as submissions arrive.</p>
 
                 <div className="mt-4 inline-flex rounded-xl border border-slate-700 bg-slate-950 p-1">
                   <button
@@ -271,16 +499,29 @@ function AppRoutes() {
               {professorView === 'live' ? (
                 <>
                   <QuizHeaderForm onSaveHeader={handleHeaderSave} />
-                  <QuizCreator onSaveQuestion={handleSaveQuestion} />
+                  <QuizCreator
+                    onSaveQuestion={handleSaveQuestion}
+                    questionList={activeQuestionList}
+                    onDeleteQuestion={handleDeleteQuestion}
+                    onReorderQuestion={handleReorderQuestion}
+                  />
                   <ProfessorDashboard
                     activeQuiz={activeQuiz || quizHeader}
+                    draftQuestions={activeQuestionList}
                     onPublish={handlePublish}
                     questionCount={activeQuestionList.length}
                     isPublishing={isPublishing}
                     publishError={publishError}
                     publishedQuizzes={publishedQuizzes}
                   />
-                  <LiveAnalytics quizId={publishedQuizId || activeQuiz?.id} />
+                  <LiveAnalytics
+                    quizId={publishedQuizId || activeQuiz?.id}
+                    accessCode={activeQuiz?.access_code || activeQuiz?.accessCode || ''}
+                    onSessionStateChange={handleLiveQuizSessionStateChange}
+                    initialSessionStatus={activeQuiz?.status || activeQuiz?.quiz_status || 'READY'}
+                    initialStartedAt={activeQuiz?.started_at || null}
+                    initialDurationMinutes={activeQuiz?.duration_minutes || activeQuiz?.time_limit_minutes || activeQuiz?.timeLimit || 10}
+                  />
                 </>
               ) : (
                 <ProfessorHistoryVault />
@@ -292,24 +533,26 @@ function AppRoutes() {
         )}
       />
       <Route path="/professor" element={<Navigate to="/instructor" replace />} />
-      <Route path="/student" element={isStudent ? <StudentGateway onQuizLoaded={handleQuizLoaded} /> : <Navigate to="/login?role=student" replace />} />
-      <Route path="/quiz/:id" element={isStudent ? <StudentGateway onQuizLoaded={handleQuizLoaded} /> : <Navigate to="/login?role=student" replace />} />
+      <Route
+        path="/live-analytics"
+        element={isProfessor ? <Navigate to="/instructor" replace /> : <Navigate to="/login?role=professor" replace />}
+      />
+      <Route path="/student" element={<StudentGateway onQuizLoaded={handleQuizLoaded} />} />
+      <Route path="/quiz/:id" element={<StudentGateway onQuizLoaded={handleQuizLoaded} />} />
       <Route
         path="/player/:quizId"
-        element={isStudent ? (
+        element={(
           <ExamRoute
             activeQuiz={activeQuiz}
             studentName={studentName}
             onSubmitSuccess={handleSubmissionSuccess}
             isSessionHydrating={isSessionHydrating}
           />
-        ) : (
-          <Navigate to="/login?role=student" replace />
         )}
       />
       <Route
         path="/scorecard"
-        element={isStudent ? (
+        element={(
           submissionResult ? (
             <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100 flex items-center justify-center">
               <StudentScorecard
@@ -324,8 +567,6 @@ function AppRoutes() {
           ) : (
             <Navigate to="/student" replace />
           )
-        ) : (
-          <Navigate to="/login?role=student" replace />
         )}
       />
     </Routes>

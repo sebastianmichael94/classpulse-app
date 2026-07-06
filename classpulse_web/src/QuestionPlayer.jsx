@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+import { API_BASE_URL } from './apiClient';
 
 const BRACKET_TOKEN_REGEX = /\[([^\]]+)\]/g;
 const POLL_INTERVAL_MS = 4000;
@@ -147,7 +148,7 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/quizzes/${quiz.id}/questions/${questionId}/responses/?student_name=${encodeURIComponent(studentName || '')}`);
+      const response = await fetch(`${API_BASE_URL}/api/quizzes/${quiz.id}/questions/${questionId}/responses/?student_name=${encodeURIComponent(studentName || '')}`);
       if (!response.ok) {
         throw new Error('Unable to load live feed responses.');
       }
@@ -184,7 +185,7 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
 
     setPeerLoadingByQuestion((prev) => ({ ...prev, [currentQuestion.id]: true }));
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/quizzes/${quiz.id}/questions/${currentQuestion.id}/responses/`, {
+      const response = await fetch(`${API_BASE_URL}/api/quizzes/${quiz.id}/questions/${currentQuestion.id}/responses/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -216,7 +217,7 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
 
     setUpvotingResponseId(responseId);
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/responses/${responseId}/upvote/`, {
+      const response = await fetch(`${API_BASE_URL}/api/responses/${responseId}/upvote/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
