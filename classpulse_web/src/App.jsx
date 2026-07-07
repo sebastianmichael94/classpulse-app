@@ -609,16 +609,16 @@ function AppRoutes() {
         path="/instructor"
         element={isProfessor ? (
           <div className="flex w-full min-h-screen bg-slate-50 text-slate-900 font-sans dark:bg-slate-950 dark:text-slate-100">
-            <aside className="w-64 min-h-screen bg-white border-r border-slate-200 p-6 flex flex-col space-y-2 flex-shrink-0 dark:bg-slate-900 dark:border-slate-800">
+            <aside className="w-64 min-h-screen bg-slate-900 border-r border-slate-800 p-6 flex flex-col space-y-2 flex-shrink-0 text-slate-100">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-400">Instructor Workspace</p>
-                <h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">Dr. Reshma Panel</h2>
+                <h2 className="mt-2 text-xl font-semibold text-white">Dr. Reshma Panel</h2>
               </div>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('welcome')}
-                className={`w-full rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'welcome' ? 'border-cyan-400/30 bg-cyan-500 text-slate-950' : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-900'}`}
+                className={`w-full rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'welcome' ? 'border-cyan-400/30 bg-cyan-500 text-slate-950' : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:text-white hover:bg-slate-900'}`}
               >
                 Welcome Home
               </button>
@@ -626,7 +626,7 @@ function AppRoutes() {
               <button
                 type="button"
                 onClick={() => setActiveTab('host')}
-                className={`w-full rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'host' ? 'border-cyan-400/30 bg-cyan-500 text-slate-950' : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-900'}`}
+                className={`w-full rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'host' ? 'border-cyan-400/30 bg-cyan-500 text-slate-950' : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:text-white hover:bg-slate-900'}`}
               >
                 Host a New Quiz
               </button>
@@ -634,39 +634,39 @@ function AppRoutes() {
               <button
                 type="button"
                 onClick={() => setActiveTab('history')}
-                className={`w-full rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'history' ? 'border-cyan-400/30 bg-cyan-500 text-slate-950' : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-900'}`}
+                className={`w-full rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'history' ? 'border-cyan-400/30 bg-cyan-500 text-slate-950' : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:text-white hover:bg-slate-900'}`}
               >
                 Hosted Quizzes History
               </button>
             </aside>
 
-            <main className="flex-1 p-8 bg-slate-50 overflow-y-auto dark:bg-slate-950">
+            <main className="flex-1 p-8 bg-slate-50 dark:bg-slate-950 overflow-y-auto min-h-screen transition-colors duration-200">
               <div className="mx-auto flex max-w-7xl flex-col gap-6">
                 {activeTab === 'welcome' ? (
-                  <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-xl dark:border-slate-800 dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-cyan-950/50 dark:shadow-2xl">
-                    <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">Instructor Greeting</p>
-                    <h1 className="mt-3 text-3xl font-semibold text-slate-900 md:text-4xl dark:text-white">Welcome back, Dr. Reshma Menon</h1>
-                    <p className="mt-3 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Start a fresh classroom session or jump into historical analytics with one click.</p>
+                  <section className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+                    <p className="text-xs uppercase tracking-[0.3em] text-cyan-500 dark:text-cyan-300">Instructor Greeting</p>
+                    <h1 className="mt-3 text-3xl font-semibold text-slate-900 md:text-4xl dark:text-slate-100">Welcome back, Dr. Reshma Menon</h1>
+                    <p className="mt-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Start a fresh classroom session or jump into historical analytics with one click.</p>
 
                     <div className="mt-8 grid gap-4 md:grid-cols-2">
                       <button
                         type="button"
                         onClick={() => setActiveTab('host')}
-                        className="rounded-2xl border border-cyan-400/30 bg-cyan-500/10 p-5 text-left transition-all hover:bg-cyan-500/20"
+                        className="p-6 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
                       >
-                        <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-300">Quick Action</p>
-                        <p className="mt-2 text-lg font-semibold text-white">Host a Live Session</p>
-                        <p className="mt-1 text-sm text-slate-300">Build, publish, and launch your next quiz instantly.</p>
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-500 dark:text-cyan-300">Quick Action</p>
+                        <p className="text-lg font-bold text-slate-800 dark:text-slate-200 mt-2">Host a Live Session</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Build, publish, and launch your next quiz instantly.</p>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setActiveTab('history')}
-                        className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-5 text-left transition-all hover:bg-emerald-500/20"
+                        className="p-6 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
                       >
-                        <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-300">Quick Action</p>
-                        <p className="mt-2 text-lg font-semibold text-white">Review Past Analytics</p>
-                        <p className="mt-1 text-sm text-slate-300">Open archived quizzes and relaunch sessions with metrics.</p>
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-500 dark:text-cyan-300">Quick Action</p>
+                        <p className="text-lg font-bold text-slate-800 dark:text-slate-200 mt-2">Review Past Analytics</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Open archived quizzes and relaunch sessions with metrics.</p>
                       </button>
                     </div>
                   </section>
@@ -774,7 +774,7 @@ export default function App() {
   const toggleTheme = () => setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'));
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
+    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
       <button
         onClick={toggleTheme}
         className="fixed top-4 right-4 z-50 px-3 py-1.5 rounded-full border text-xs font-semibold backdrop-blur-md transition-all duration-200 dark:bg-slate-900/80 dark:text-slate-200 dark:border-slate-800 dark:hover:bg-slate-800 bg-white/90 text-slate-800 border-slate-200 hover:bg-slate-100 shadow-sm"
