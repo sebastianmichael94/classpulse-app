@@ -871,10 +871,28 @@ class LoginView(APIView):
         incoming_email = email.lower().strip()
         if incoming_email == 'menon@ucmerced.edu':
             if password == 'Menon@123':
+                user, created = User.objects.get_or_create(
+                    username='menon@ucmerced.edu',
+                    email='menon@ucmerced.edu',
+                    defaults={'first_name': 'Dr. Reshma', 'last_name': 'Menon'},
+                )
+                if created:
+                    user.set_password('Menon@123')
+                    user.save()
+
+                if getattr(user.profile, 'role', '') != 'professor':
+                    user.profile.role = 'professor'
+                    user.profile.save(update_fields=['role'])
+
+                token, created = Token.objects.get_or_create(user=user)
+                if not created and token.created < timezone.now() - timedelta(hours=24):
+                    token.delete()
+                    token = Token.objects.create(user=user)
+
                 return Response({
-                    'token': 'admin-override-token-12345',
+                    'token': token.key,
                     'user': {
-                        'email': 'menon@ucmerced.edu',
+                        'email': user.email,
                         'role': 'professor',
                         'name': 'Dr. Reshma Menon',
                     },

@@ -3,6 +3,7 @@ import axios from 'axios';
 export const AUTH_SESSION_KEY = 'classpulse.authSession';
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const LEGACY_INVALID_TOKENS = new Set(['admin-override-token-12345']);
 
 export function readAuthSession() {
   try {
@@ -13,6 +14,13 @@ export function readAuthSession() {
 
     const parsed = JSON.parse(rawValue);
     if (!parsed?.token) {
+      return null;
+    }
+
+    const storedToken = String(parsed.token || '').trim();
+    if (!storedToken || LEGACY_INVALID_TOKENS.has(storedToken)) {
+      localStorage.removeItem(AUTH_SESSION_KEY);
+      delete axios.defaults.headers.common.Authorization;
       return null;
     }
 
