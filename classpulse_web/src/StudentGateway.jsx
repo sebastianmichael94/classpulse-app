@@ -108,24 +108,24 @@ export default function StudentGateway({ onQuizLoaded }) {
   }, [id, profileName, accessCode, isLoading, hasAutoJoined]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/90 shadow-2xl">
-        <div className="border-b border-slate-800 bg-[#0f172a] px-8 py-6">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-2xl">
+        <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#0f172a] px-8 py-6 transition-colors">
           <p className="text-sm uppercase tracking-[0.35em] text-cyan-300">ClassPulse Student Gateway</p>
-          <h1 className="mt-3 text-3xl font-semibold text-white">Student Examination Gateway</h1>
-          <p className="mt-2 text-sm text-slate-400">Authenticate with your name and the instructor PIN to enter a secured live assessment session.</p>
+          <h1 className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">Student Examination Gateway</h1>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Authenticate with your name and the instructor PIN to enter a secured live assessment session.</p>
         </div>
 
         <div className="grid gap-8 p-8 md:grid-cols-[0.95fr_1.05fr]">
-          <div className="rounded-2xl border border-slate-800 bg-black/20 p-6">
-            <div className="rounded-2xl border border-cyan-500/30 bg-cyan-950/30 p-5 text-center">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-black/20 p-6 transition-colors">
+            <div className="rounded-2xl border border-cyan-500/30 bg-cyan-50 dark:bg-cyan-950/30 p-5 text-center transition-colors">
               <p className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300">Session Ready</p>
-              <p className="mt-2 text-sm text-slate-300">The exam will open instantly after your PIN is verified.</p>
-              <div className="mt-5 rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-2xl font-semibold tracking-[0.35em] text-cyan-200">
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">The exam will open instantly after your PIN is verified.</p>
+              <div className="mt-5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950/70 px-4 py-3 text-2xl font-semibold tracking-[0.35em] text-cyan-700 dark:text-cyan-200 transition-colors">
                 {accessCode || '0000'}
               </div>
             </div>
-            <div className="mt-6 space-y-3 text-sm text-slate-400">
+            <div className="mt-6 space-y-3 text-sm text-slate-500 dark:text-slate-400">
               <p>• {profileName ? 'Your signed-in student profile will be used automatically.' : 'Enter your name so your submission is attributed correctly.'}</p>
               <p>• Use the four-digit PIN supplied by your instructor.</p>
               <p>• If the session is not active yet, you will see a clear message and can retry when it starts.</p>
@@ -134,23 +134,23 @@ export default function StudentGateway({ onQuizLoaded }) {
 
           <form onSubmit={handleUnlock} className="space-y-4">
             {profileName ? (
-              <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-100">
+              <div className="rounded-xl border border-cyan-500/30 bg-cyan-50 dark:bg-cyan-950/20 px-4 py-3 text-sm text-cyan-700 dark:text-cyan-100 transition-colors">
                 Joining as <span className="font-semibold">{profileName}</span>
               </div>
             ) : (
-              <label className="block text-sm font-medium text-slate-300">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Student Name
                 <input
                   value={studentName}
                   onChange={(e) => setStudentName(e.target.value)}
                   placeholder="Enter your name"
-                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                  className="mt-2 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-cyan-400 transition-colors"
                   required
                 />
               </label>
             )}
 
-            <label className="block text-sm font-medium text-slate-300">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               Access Code
               <input
                 value={accessCode}
@@ -159,7 +159,7 @@ export default function StudentGateway({ onQuizLoaded }) {
                 pattern="[0-9]{4}"
                 maxLength="4"
                 placeholder="0000"
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                className="mt-2 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-cyan-400 transition-colors"
                 required
               />
             </label>

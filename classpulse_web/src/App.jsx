@@ -640,10 +640,10 @@ function AppRoutes() {
               </button>
             </aside>
 
-            <main className="flex-1 p-8 bg-slate-50 dark:bg-slate-950 overflow-y-auto min-h-screen transition-colors duration-200">
+            <main className="flex-1 p-8 bg-slate-50 dark:bg-slate-950 min-h-screen overflow-y-auto transition-colors">
               <div className="mx-auto flex max-w-7xl flex-col gap-6">
                 {activeTab === 'welcome' ? (
-                  <section className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+                  <section className="p-8 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
                     <p className="text-xs uppercase tracking-[0.3em] text-cyan-500 dark:text-cyan-300">Instructor Greeting</p>
                     <h1 className="mt-3 text-3xl font-semibold text-slate-900 md:text-4xl dark:text-slate-100">Welcome back, Dr. Reshma Menon</h1>
                     <p className="mt-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Start a fresh classroom session or jump into historical analytics with one click.</p>
@@ -652,7 +652,7 @@ function AppRoutes() {
                       <button
                         type="button"
                         onClick={() => setActiveTab('host')}
-                        className="p-6 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
+                        className="p-6 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
                       >
                         <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-500 dark:text-cyan-300">Quick Action</p>
                         <p className="text-lg font-bold text-slate-800 dark:text-slate-200 mt-2">Host a Live Session</p>
@@ -662,7 +662,7 @@ function AppRoutes() {
                       <button
                         type="button"
                         onClick={() => setActiveTab('history')}
-                        className="p-6 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
+                        className="p-6 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
                       >
                         <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-500 dark:text-cyan-300">Quick Action</p>
                         <p className="text-lg font-bold text-slate-800 dark:text-slate-200 mt-2">Review Past Analytics</p>
