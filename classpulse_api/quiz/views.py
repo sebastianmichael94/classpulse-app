@@ -367,6 +367,33 @@ def build_word_counts_from_texts(texts):
     return word_counts
 
 
+def format_word_cloud_data(word_counts, limit=30):
+    if not isinstance(word_counts, dict):
+        return []
+
+    normalized_items = []
+    for word, count in word_counts.items():
+        token = str(word or '').strip().lower()
+        if not token:
+            continue
+
+        try:
+            numeric_count = int(round(float(count)))
+        except (TypeError, ValueError):
+            continue
+
+        if numeric_count <= 0:
+            continue
+
+        normalized_items.append((token, numeric_count))
+
+    normalized_items.sort(key=lambda item: (-item[1], item[0]))
+    return [
+        {'text': token, 'value': numeric_count}
+        for token, numeric_count in normalized_items[:max(1, int(limit or 30))]
+    ]
+
+
 def build_summary_insights(word_counts):
     ranked_terms = [(word, count) for word, count in sorted(word_counts.items(), key=lambda item: item[1], reverse=True)[:4]]
     top_terms = [word for word, _ in ranked_terms[:2]]
@@ -431,6 +458,37 @@ def build_local_prompt_response(prompt_text, answers):
         )
 
     return format_professor_prompt_response(breakdown, recommendation, follow_up)
+
+
+def build_local_chat_response(prompt_text, answers, active_question_text=''):
+    normalized_prompt = str(prompt_text or '').strip() or 'Please summarize current student feedback.'
+    fragments = [str(item).strip() for item in (answers or []) if str(item).strip()]
+    word_counts = build_word_counts_from_texts(fragments)
+    top_terms = [word for word, _ in sorted(word_counts.items(), key=lambda item: item[1], reverse=True)[:4]]
+
+    if fragments:
+        context_line = f"I reviewed {len(fragments)} student responses"
+        if top_terms:
+            context_line += f" and the strongest recurring terms are {', '.join(top_terms[:3])}."
+        else:
+            context_line += '. '
+        return (
+            f"{context_line} Based on your question, {normalized_prompt}\n\n"
+            "Direct take: students are showing mixed depth right now, so anchor the next step in one concrete example, "
+            "then ask for a short justification to confirm understanding."
+        ).strip()
+
+    active_hint = str(active_question_text or '').strip()
+    if active_hint:
+        return (
+            f"I do not have enough student text responses yet to answer this confidently. "
+            f"Given your question ({normalized_prompt}), run a quick one-sentence pulse check on this prompt context: {active_hint[:180]}"
+        )
+
+    return (
+        f"I do not have enough student text responses yet to answer this confidently. "
+        f"For your question ({normalized_prompt}), collect 3-5 short responses first, then I can give a direct interpretation."
+    )
 
 
 def strip_developer_artifacts(text_value):
@@ -789,6 +847,7 @@ def extract_text_answers_for_pin(pin_param, question_id=None):
 def generate_claude_dashboard_insights(essay_answers, force_model=False):
     source_answers = essay_answers or []
     word_counts = build_word_counts_from_texts(source_answers)
+    word_cloud_data_fallback = format_word_cloud_data(word_counts, limit=30)
     insights_fallback = build_summary_insights(word_counts)
     top_terms = [word for word, _ in sorted(word_counts.items(), key=lambda item: item[1], reverse=True)[:4]]
     if top_terms:
@@ -807,6 +866,7 @@ def generate_claude_dashboard_insights(essay_answers, force_model=False):
             'misconceptions': misconceptions_fallback,
             'key_themes': key_themes_fallback,
             'word_counts': word_counts,
+            'word_cloud_data': word_cloud_data_fallback,
             'ai_source': 'fallback',
         }
 
@@ -816,8 +876,8 @@ def generate_claude_dashboard_insights(essay_answers, force_model=False):
         "Respond ONLY with a raw, valid JSON object containing exactly these keys: 'gist_list' "
         "(a list of 3-4 distinct string bullet points summarizing key insights), 'misconceptions' "
         "(a single string highlighting the most common student error), and 'key_themes' "
-        "(a single string listing overarching academic topics), and 'word_weights' "
-        "(a list of up to 30 objects like {'word':'term','weight':number} for word-cloud rendering)."
+        "(a single string listing overarching academic topics), and 'word_cloud_data' "
+        "(a list of up to 30 objects sorted highest-to-lowest frequency exactly like {'text':'term','value':number})."
     )
 
     anthropic_client = get_anthropic_client()
@@ -829,6 +889,7 @@ def generate_claude_dashboard_insights(essay_answers, force_model=False):
             'misconceptions': misconceptions_fallback,
             'key_themes': key_themes_fallback,
             'word_counts': word_counts,
+            'word_cloud_data': word_cloud_data_fallback,
             'ai_source': 'fallback',
         }
 
@@ -854,20 +915,20 @@ def generate_claude_dashboard_insights(essay_answers, force_model=False):
         misconceptions = str(ai_data.get('misconceptions') or '').strip() or misconceptions_fallback
         key_themes = str(ai_data.get('key_themes') or '').strip() or key_themes_fallback
 
-        claude_word_weights = ai_data.get('word_weights')
-        if not isinstance(claude_word_weights, list):
-            claude_word_weights = []
+        raw_word_cloud_data = ai_data.get('word_cloud_data')
+        if not isinstance(raw_word_cloud_data, list):
+            raw_word_cloud_data = ai_data.get('word_weights') if isinstance(ai_data.get('word_weights'), list) else []
 
         claude_word_counts = {}
-        for item in claude_word_weights[:30]:
+        for item in raw_word_cloud_data[:30]:
             if not isinstance(item, dict):
                 continue
 
-            term = str(item.get('word') or '').strip().lower()
+            term = str(item.get('text') or item.get('word') or '').strip().lower()
             if not term:
                 continue
 
-            raw_weight = item.get('weight', 0)
+            raw_weight = item.get('value', item.get('weight', item.get('count', 0)))
             try:
                 numeric_weight = int(round(float(raw_weight)))
             except (TypeError, ValueError):
@@ -875,9 +936,10 @@ def generate_claude_dashboard_insights(essay_answers, force_model=False):
 
             if numeric_weight <= 0:
                 continue
-            claude_word_counts[term] = max(1, numeric_weight)
+            claude_word_counts[term] = claude_word_counts.get(term, 0) + max(1, numeric_weight)
 
         resolved_word_counts = claude_word_counts or word_counts
+        resolved_word_cloud_data = format_word_cloud_data(resolved_word_counts, limit=30)
 
         return {
             'gist_list': gist_list,
@@ -885,6 +947,7 @@ def generate_claude_dashboard_insights(essay_answers, force_model=False):
             'misconceptions': misconceptions,
             'key_themes': key_themes,
             'word_counts': resolved_word_counts,
+            'word_cloud_data': resolved_word_cloud_data,
             'ai_source': 'claude',
         }
     except Exception as e:
@@ -895,6 +958,7 @@ def generate_claude_dashboard_insights(essay_answers, force_model=False):
             'misconceptions': misconceptions_fallback,
             'key_themes': key_themes_fallback,
             'word_counts': word_counts,
+            'word_cloud_data': word_cloud_data_fallback,
             'ai_source': 'fallback',
         }
 
@@ -921,7 +985,37 @@ Strictly format your response into these exact Markdown headers:
 """
 
 
-def generate_claude_chat_response(user_prompt, essay_answers, active_question_text=''):
+CLAUDE_CONVERSATIONAL_SYSTEM_PROMPT = """
+You are a direct, conversational AI Assistant helping Dr. Reshma Menon interpret live lecture feedback metrics for ClassPulse.
+Analyze the student response text data provided to you, and answer the professor's explicit query directly, naturally, and professionally without using rigid templates, forced headers, or pre-formatted choice options. Just answer her question directly using the data context.
+"""
+
+
+def parse_boolean_flag(raw_value, default=False):
+    if isinstance(raw_value, bool):
+        return raw_value
+
+    normalized = str(raw_value or '').strip().lower()
+    if not normalized:
+        return bool(default)
+
+    return normalized in {'1', 'true', 'yes', 'on'}
+
+
+def build_claude_student_context(active_question_text, student_responses):
+    clean_question = str(active_question_text or '').strip()
+    clean_responses = [str(item).strip() for item in (student_responses or []) if str(item).strip()]
+
+    response_lines = [f"{index + 1}. {item}" for index, item in enumerate(clean_responses)]
+    responses_block = '\n'.join(response_lines) if response_lines else 'No student text responses available yet.'
+
+    if clean_question:
+        return f"Active Question Context:\n{clean_question}\n\nStudent Responses:\n{responses_block}"
+
+    return f"Student Responses:\n{responses_block}"
+
+
+def generate_claude_summary_response(user_prompt, essay_answers, active_question_text=''):
     def build_prompt_fallback_response(prompt_text, answers, reason=''):
         return build_local_prompt_response(prompt_text, answers)
 
@@ -977,6 +1071,39 @@ def generate_claude_chat_response(user_prompt, essay_answers, active_question_te
     except Exception as e:
         print(f"Claude API Pipeline Error: {str(e)}")
         return build_prompt_fallback_response(user_prompt, essay_answers, str(e))
+
+
+def generate_claude_chat_response(user_prompt, essay_answers, active_question_text=''):
+    direct_prompt = str(user_prompt or '').strip()
+    if not direct_prompt:
+        return 'Please share a prompt so I can respond using the current student response context.'
+
+    context_items = essay_answers[:80]
+    context_block = build_claude_student_context(active_question_text, context_items)
+
+    anthropic_client = get_anthropic_client()
+    if anthropic_client is None:
+        print('Claude API Pipeline Error: Missing ANTHROPIC_API_KEY in backend process environment.')
+        return build_local_chat_response(direct_prompt, essay_answers, active_question_text)
+
+    try:
+        message = anthropic_client.messages.create(
+            model=get_anthropic_model(),
+            max_tokens=700,
+            system=CLAUDE_CONVERSATIONAL_SYSTEM_PROMPT,
+            messages=[
+                {"role": "user", "content": direct_prompt},
+                {"role": "user", "content": context_block},
+            ]
+        )
+        response_text = extract_message_text(message)
+        if not str(response_text).strip():
+            raise ValueError('Claude returned an empty response.')
+
+        return strip_developer_artifacts(response_text)
+    except Exception as e:
+        print(f"Claude API Pipeline Error: {str(e)}")
+        return build_local_chat_response(direct_prompt, essay_answers, active_question_text)
 
 
 class RegisterView(APIView):
@@ -1180,7 +1307,20 @@ class ProfessorQuizHistoryView(APIView):
 class CustomAnalyticsPromptView(APIView):
     permission_classes = [AllowAny]
 
-    def post(self, request):
+    def _resolve_mode(self, request, forced_mode=None):
+        if forced_mode in {'chat', 'summary'}:
+            return forced_mode
+
+        raw_mode = str(request.data.get('mode') or request.data.get('request_type') or '').strip().lower()
+        if raw_mode in {'chat', 'summary'}:
+            return raw_mode
+
+        is_summary = parse_boolean_flag(request.data.get('is_summary'), default=False)
+        return 'summary' if is_summary else 'chat'
+
+    def _handle_prompt(self, request, forced_mode=None):
+        mode = self._resolve_mode(request, forced_mode=forced_mode)
+
         user_prompt = str(request.data.get('prompt') or request.data.get('prompt_text') or '').strip()
         quiz_id = request.data.get('quiz_id')
         access_code = str(request.data.get('access_code') or request.data.get('pin') or '').strip()
@@ -1216,11 +1356,18 @@ class CustomAnalyticsPromptView(APIView):
                 f"Type: {str(selected_question.question_type or '').strip()}"
             ).strip()
 
-        generated_text = generate_claude_chat_response(
-            user_prompt,
-            essay_answers,
-            active_question_text=selected_question_text,
-        )
+        if mode == 'summary':
+            generated_text = generate_claude_summary_response(
+                user_prompt,
+                essay_answers,
+                active_question_text=selected_question_text,
+            )
+        else:
+            generated_text = generate_claude_chat_response(
+                user_prompt,
+                essay_answers,
+                active_question_text=selected_question_text,
+            )
 
         prompt_record = CustomAnalyticsPrompt.objects.create(
             quiz=quiz,
@@ -1239,8 +1386,26 @@ class CustomAnalyticsPromptView(APIView):
             'reply': prompt_record.response_text,
             'question_id': prompt_record.question_id,
             'is_announcement': prompt_record.is_announcement,
+            'mode': mode,
             'created_at': prompt_record.created_at.isoformat(),
         }, status=status.HTTP_201_CREATED)
+
+    def post(self, request):
+        return self._handle_prompt(request, forced_mode=None)
+
+
+class AnalyticsSummaryView(CustomAnalyticsPromptView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        return self._handle_prompt(request, forced_mode='summary')
+
+
+class AnalyticsChatView(CustomAnalyticsPromptView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        return self._handle_prompt(request, forced_mode='chat')
 
 
 class ShareCustomAnalyticsPromptView(APIView):
@@ -1397,19 +1562,19 @@ class LiveAnalyticsView(APIView):
                     else:
                         response_type_breakdown['other'] += 1
 
-            word_cloud_data = analytics_payload.get('word_cloud') or []
+            word_cloud_data = analytics_payload.get('word_cloud_data') or analytics_payload.get('word_cloud') or []
             class_confidence_value = analytics_payload.get('confidence_index', analytics_payload.get('class_confidence_index', 0))
             class_confidence_percent = int(round(class_confidence_value * 100)) if float(class_confidence_value or 0) <= 1 else int(round(class_confidence_value or 0))
 
             if should_generate_cloud and not word_cloud_data:
-                word_cloud_data = [{'word': word, 'count': count} for word, count in list(word_counts.items())[:20]]
+                word_cloud_data = format_word_cloud_data(word_counts, limit=30)
             if should_generate_cloud:
                 image_source_counts = word_counts
                 if not image_source_counts and isinstance(word_cloud_data, list):
                     image_source_counts = {
-                        str(item.get('word') or '').strip(): int(item.get('count') or 0)
+                        str(item.get('text') or '').strip(): int(item.get('value') or 0)
                         for item in word_cloud_data
-                        if isinstance(item, dict) and str(item.get('word') or '').strip()
+                        if isinstance(item, dict) and str(item.get('text') or '').strip()
                     }
                 word_cloud_image_data_uri = build_word_cloud_image_data_uri(
                     image_source_counts,
@@ -1430,7 +1595,8 @@ class LiveAnalyticsView(APIView):
                 'question_prompt': selected_question.question_text,
                 'is_shared_with_students': getattr(quiz, 'is_shared_with_students', False),
                 'total_submissions': total_submissions_count,
-                'word_cloud': word_cloud_data if should_generate_cloud else analytics_payload.get('word_cloud', []),
+                'word_cloud_data': word_cloud_data if should_generate_cloud else analytics_payload.get('word_cloud_data', []),
+                'word_cloud': word_cloud_data if should_generate_cloud else analytics_payload.get('word_cloud_data', []),
                 'word_cloud_image_data_uri': word_cloud_image_data_uri if should_generate_cloud else '',
                 'ai_source': ai_source,
                 'gist_list': gist_list if should_generate_summary else [],
@@ -1472,7 +1638,8 @@ class LiveAnalyticsView(APIView):
                 'question_prompt': selected_question.question_text,
                 'is_shared_with_students': getattr(quiz, 'is_shared_with_students', False),
                 'total_submissions': total_submissions_count,
-                'word_cloud': [{'word': word, 'count': count} for word, count in list(word_counts.items())[:20]] if should_generate_cloud else [],
+                'word_cloud_data': format_word_cloud_data(word_counts, limit=30) if should_generate_cloud else [],
+                'word_cloud': format_word_cloud_data(word_counts, limit=30) if should_generate_cloud else [],
                 'word_cloud_image_data_uri': build_word_cloud_image_data_uri(
                     word_counts,
                     question_seed=f"{pin_param}-{question_id}",
@@ -1764,12 +1931,14 @@ class QuizViewSet(viewsets.ModelViewSet):
         )
 
         word_cloud_counts = {}
+        word_cloud_data = []
 
         if include_heavy_analytics:
             insight_texts = extract_prompt_context_answers_for_pin(quiz.access_code, question_id=question_id)
             insights = generate_claude_dashboard_insights(insight_texts, force_model=False)
             data['ai_source'] = insights.get('ai_source', data.get('ai_source', 'fallback'))
             word_cloud_counts = insights.get('word_counts', {}) if isinstance(insights, dict) else {}
+            word_cloud_data = insights.get('word_cloud_data', []) if isinstance(insights, dict) else []
 
             if should_generate_summary:
                 data['gist_list'] = insights.get('gist_list', data.get('gist_list', []))
@@ -1786,8 +1955,9 @@ class QuizViewSet(viewsets.ModelViewSet):
                 data['key_themes'] = ''
                 data['key_themes_detected'] = []
 
-            if should_generate_cloud and not data.get('word_cloud'):
-                data['word_cloud'] = [{'word': word, 'count': count} for word, count in list(word_cloud_counts.items())[:20]]
+            if should_generate_cloud and not data.get('word_cloud_data'):
+                data['word_cloud_data'] = word_cloud_data or format_word_cloud_data(word_cloud_counts, limit=30)
+                data['word_cloud'] = data['word_cloud_data']
         else:
             data['gist_list'] = []
             data['gistList'] = []
@@ -1801,17 +1971,22 @@ class QuizViewSet(viewsets.ModelViewSet):
         data['generated_summary'] = bool(should_generate_summary)
 
         if should_generate_cloud:
-            if not word_cloud_counts and isinstance(data.get('word_cloud'), list):
+            if not word_cloud_counts and isinstance(data.get('word_cloud_data'), list):
                 word_cloud_counts = {
-                    str(item.get('word') or '').strip(): int(item.get('count') or 0)
-                    for item in data.get('word_cloud', [])
-                    if isinstance(item, dict) and str(item.get('word') or '').strip()
+                    str(item.get('text') or '').strip(): int(item.get('value') or 0)
+                    for item in data.get('word_cloud_data', [])
+                    if isinstance(item, dict) and str(item.get('text') or '').strip()
                 }
+            if not data.get('word_cloud_data'):
+                data['word_cloud_data'] = format_word_cloud_data(word_cloud_counts, limit=30)
+            data['word_cloud'] = data.get('word_cloud_data', [])
             data['word_cloud_image_data_uri'] = build_word_cloud_image_data_uri(
                 word_cloud_counts,
                 question_seed=f"{quiz.access_code}-{question_id}",
             )
         else:
+            data['word_cloud_data'] = []
+            data['word_cloud'] = []
             data['word_cloud_image_data_uri'] = ''
 
         return Response(data)
@@ -1839,12 +2014,14 @@ class QuizViewSet(viewsets.ModelViewSet):
         )
 
         word_cloud_counts = {}
+        word_cloud_data = []
 
         if include_heavy_analytics:
             insight_texts = extract_prompt_context_answers_for_pin(quiz.access_code, question_id=question_id)
             insights = generate_claude_dashboard_insights(insight_texts, force_model=True)
             data['ai_source'] = insights.get('ai_source', 'fallback')
             word_cloud_counts = insights.get('word_counts', {}) if isinstance(insights, dict) else {}
+            word_cloud_data = insights.get('word_cloud_data', []) if isinstance(insights, dict) else []
 
             if should_generate_summary:
                 data['gist_list'] = insights.get('gist_list', [])
@@ -1861,9 +2038,11 @@ class QuizViewSet(viewsets.ModelViewSet):
                 data['key_themes'] = ''
                 data['key_themes_detected'] = []
 
-            if should_generate_cloud and not data.get('word_cloud'):
-                data['word_cloud'] = [{'word': word, 'count': count} for word, count in list(word_cloud_counts.items())[:20]]
+            if should_generate_cloud and not data.get('word_cloud_data'):
+                data['word_cloud_data'] = word_cloud_data or format_word_cloud_data(word_cloud_counts, limit=30)
+                data['word_cloud'] = data['word_cloud_data']
             elif not should_generate_cloud:
+                data['word_cloud_data'] = []
                 data['word_cloud'] = []
         else:
             data['ai_source'] = 'fallback'
@@ -1873,6 +2052,7 @@ class QuizViewSet(viewsets.ModelViewSet):
             data['common_misconceptions'] = []
             data['key_themes'] = ''
             data['key_themes_detected'] = []
+            data['word_cloud_data'] = []
             data['word_cloud'] = []
 
         base_confidence = data.get('class_confidence_index', 0)
@@ -1885,17 +2065,22 @@ class QuizViewSet(viewsets.ModelViewSet):
         data['generated_summary'] = bool(should_generate_summary)
 
         if should_generate_cloud:
-            if not word_cloud_counts and isinstance(data.get('word_cloud'), list):
+            if not word_cloud_counts and isinstance(data.get('word_cloud_data'), list):
                 word_cloud_counts = {
-                    str(item.get('word') or '').strip(): int(item.get('count') or 0)
-                    for item in data.get('word_cloud', [])
-                    if isinstance(item, dict) and str(item.get('word') or '').strip()
+                    str(item.get('text') or '').strip(): int(item.get('value') or 0)
+                    for item in data.get('word_cloud_data', [])
+                    if isinstance(item, dict) and str(item.get('text') or '').strip()
                 }
+            if not data.get('word_cloud_data'):
+                data['word_cloud_data'] = format_word_cloud_data(word_cloud_counts, limit=30)
+            data['word_cloud'] = data.get('word_cloud_data', [])
             data['word_cloud_image_data_uri'] = build_word_cloud_image_data_uri(
                 word_cloud_counts,
                 question_seed=f"{quiz.access_code}-{question_id}",
             )
         else:
+            data['word_cloud_data'] = []
+            data['word_cloud'] = []
             data['word_cloud_image_data_uri'] = ''
 
         return Response(data)
@@ -2203,7 +2388,8 @@ class QuizViewSet(viewsets.ModelViewSet):
             'average_score': avg_score,
             'max_score': max_score,
             'min_score': min_score,
-            'word_cloud': [{'word': word, 'count': count} for word, count in top_words] if include_heavy_analytics else [],
+            'word_cloud_data': [{'text': word, 'value': count} for word, count in top_words] if include_heavy_analytics else [],
+            'word_cloud': [{'text': word, 'value': count} for word, count in top_words] if include_heavy_analytics else [],
             'essay_summary': {
                 'common_misconceptions': common_misconceptions,
                 'key_themes_detected': key_themes_detected,

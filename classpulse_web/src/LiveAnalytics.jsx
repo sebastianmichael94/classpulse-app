@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE_URL, authFetch } from './apiClient';
+import WordCloudComponent from './WordCloudComponent';
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -7,16 +8,18 @@ function normalizeWordCloud(input) {
   if (Array.isArray(input)) {
     return input
       .map((item) => ({
-        word: String(item?.word || '').trim(),
-        count: Number(item?.count || 0),
+        text: String(item?.text || item?.word || '').trim().toLowerCase(),
+        value: Number(item?.value || item?.count || 0),
       }))
-      .filter((item) => item.word && item.count > 0);
+      .filter((item) => item.text && item.value > 0)
+      .sort((a, b) => b.value - a.value || a.text.localeCompare(b.text));
   }
 
   if (input && typeof input === 'object') {
     return Object.entries(input)
-      .map(([word, count]) => ({ word: String(word || '').trim(), count: Number(count || 0) }))
-      .filter((item) => item.word && item.count > 0);
+      .map(([text, value]) => ({ text: String(text || '').trim().toLowerCase(), value: Number(value || 0) }))
+      .filter((item) => item.text && item.value > 0)
+      .sort((a, b) => b.value - a.value || a.text.localeCompare(b.text));
   }
 
   return [];
@@ -32,27 +35,6 @@ function toSummaryArray(value, fallbackMessage) {
   }
 
   return [fallbackMessage];
-}
-
-const ORGANIC_PASTEL_COLORS = [
-  '#fca5a5',
-  '#fdba74',
-  '#fde68a',
-  '#86efac',
-  '#7dd3fc',
-  '#93c5fd',
-  '#c4b5fd',
-  '#f9a8d4',
-];
-
-function stablePaletteIndex(word, count, index, questionSeed = '') {
-  const source = `${word}-${count}-${index}-${questionSeed}`;
-  let hash = 0;
-  for (let i = 0; i < source.length; i += 1) {
-    hash = (hash << 5) - hash + source.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash) % ORGANIC_PASTEL_COLORS.length;
 }
 
 function normalizeListState(value) {
@@ -196,7 +178,7 @@ export default function LiveAnalytics({
 }) {
   const [analytics, setAnalytics] = useState(null);
   const [submissionCount, setSubmissionCount] = useState(0);
-  const [wordCloudData, setWordCloudData] = useState({});
+  const [wordCloudData, setWordCloudData] = useState([]);
   const [aiSummariesByQuestion, setAiSummariesByQuestion] = useState({});
   const [aiSource, setAiSource] = useState('fallback');
   const [loading, setLoading] = useState(false);
@@ -280,7 +262,7 @@ export default function LiveAnalytics({
 
   useEffect(() => {
     // Instantly clear panel state when switching question tabs so each pane reflects only that question.
-    setWordCloudData({});
+    setWordCloudData([]);
     setSubmissionCount(0);
     setChatMessages([]);
     setAssistantPrompt('');
@@ -305,7 +287,7 @@ export default function LiveAnalytics({
       setLastUpdated(null);
       setError('');
       setSubmissionCount(0);
-      setWordCloudData({});
+      setWordCloudData([]);
       setAiSummariesByQuestion({});
       setAiSource('fallback');
       setChatMessages([]);
@@ -378,7 +360,7 @@ export default function LiveAnalytics({
           }
 
           if (data.generated_word_cloud || forceRefresh) {
-            setWordCloudData(data.word_cloud || data.wordCloud || {});
+            setWordCloudData(normalizeWordCloud(data.word_cloud_data || data.word_cloud || data.wordCloud || []));
           }
 
           const hasSummaryPayload = normalizedInsights.gist.length > 0
@@ -677,7 +659,7 @@ export default function LiveAnalytics({
         ?? (Array.isArray(payload.responses) ? payload.responses.length : 0)
         ?? 0;
 
-      setWordCloudData(payload.word_cloud || payload.wordCloud || {});
+      setWordCloudData(normalizeWordCloud(payload.word_cloud_data || payload.word_cloud || payload.wordCloud || []));
       setAnalytics((prev) => ({
         ...payload,
         word_cloud_image_data_uri: String(payload.word_cloud_image_data_uri || '').trim()
@@ -697,38 +679,6 @@ export default function LiveAnalytics({
   const wordCloud = useMemo(() => {
     return normalizeWordCloud(wordCloudData);
   }, [wordCloudData]);
-
-  const generatedWordCloudImage = useMemo(() => {
-    const direct = String(analytics?.word_cloud_image_data_uri || '').trim();
-    if (direct) {
-      return direct;
-    }
-
-    return '';
-  }, [analytics?.word_cloud_image_data_uri]);
-
-  const organicWordCloud = useMemo(() => {
-    if (!wordCloud.length) {
-      return [];
-    }
-
-    return wordCloud
-      .map((item, index) => {
-        const fontSize = `${Math.min(1 + item.count * 0.35, 3.2)}rem`;
-        const fontWeight = Math.min(800, 450 + item.count * 45);
-        const color = ORGANIC_PASTEL_COLORS[stablePaletteIndex(item.word, item.count, index, activeQuestionId)];
-        return {
-          ...item,
-          fontSize,
-          fontWeight,
-          color,
-          rotate: `${((index % 5) - 2) * 1.5}deg`,
-          marginRight: `${0.5 + ((index % 4) * 0.15)}rem`,
-          marginBottom: `${0.45 + ((index % 3) * 0.2)}rem`,
-        };
-      })
-      .sort((a, b) => b.count - a.count);
-  }, [wordCloud, activeQuestionId]);
 
   const individualSubmissions = Array.isArray(analytics?.individual_submissions) ? analytics.individual_submissions : [];
   const promptHistory = Array.isArray(analytics?.custom_prompt_history)
@@ -953,20 +903,15 @@ export default function LiveAnalytics({
                     <button
                       type="button"
                       onClick={() => setIsWordCloudMaximized(true)}
-                      disabled={!generatedWordCloudImage}
+                      disabled={!wordCloud.length}
                       className="px-3 py-1.5 text-xs font-semibold text-cyan-400 bg-slate-900 border border-slate-800 rounded-lg hover:bg-slate-800 transition-all flex items-center space-x-1 disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       <span>Maximize Cloud</span>
                     </button>
                   </div>
-                  {generatedWordCloudImage ? (
+                  {wordCloud.length ? (
                     <div className="mt-4 overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/80">
-                      <img
-                        src={generatedWordCloudImage}
-                        alt="Claude-generated word cloud"
-                        className="h-auto w-full object-contain"
-                        loading="lazy"
-                      />
+                      <WordCloudComponent data={wordCloud} width={980} height={460} className="min-h-[280px]" />
                     </div>
                   ) : (
                     <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
@@ -980,7 +925,7 @@ export default function LiveAnalytics({
                   onClick={() => setIsResponsesPanelOpen(true)}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25"
                 >
-                  📋 See Individual Student Answers
+                  See Individual Student Answers
                 </button>
               </div>
             ) : null}
@@ -992,7 +937,7 @@ export default function LiveAnalytics({
                   onClick={() => setIsResponsesPanelOpen(true)}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25"
                 >
-                  📋 See Individual Student Answers
+                  See Individual Student Answers
                 </button>
               </div>
             ) : null}
@@ -1031,7 +976,7 @@ export default function LiveAnalytics({
                   onClick={() => setIsResponsesPanelOpen(true)}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25"
                 >
-                  📋 See Individual Student Answers
+                  See Individual Student Answers
                 </button>
               </div>
             ) : null}
@@ -1235,14 +1180,14 @@ export default function LiveAnalytics({
       {isWordCloudMaximized && (
         <div
           onClick={() => setIsWordCloudMaximized(false)}
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-md p-8 animate-fade-in cursor-zoom-out"
+          className="fixed inset-0 top-0 left-0 w-screen h-screen z-[999] flex items-center justify-center bg-slate-950/95 backdrop-blur-md"
           role="dialog"
           aria-modal="true"
           aria-label="Expanded word cloud"
         >
           <div
             onClick={(event) => event.stopPropagation()}
-            className="w-full max-w-[90vmin] aspect-video bg-slate-900/40 border border-slate-800 p-8 rounded-2xl shadow-2xl flex items-center justify-center relative"
+            className="w-[90vw] h-[80vh] bg-slate-900/40 border border-slate-800 p-8 rounded-2xl shadow-2xl flex items-center justify-center relative"
           >
             <button
               type="button"
@@ -1252,14 +1197,9 @@ export default function LiveAnalytics({
               Minimize
             </button>
 
-            <div className="w-full h-full flex items-center justify-center scale-110 transform transition-transform">
-              {generatedWordCloudImage ? (
-                <img
-                  src={generatedWordCloudImage}
-                  alt="Expanded live feedback cloud"
-                  className="h-full w-full object-contain"
-                  loading="lazy"
-                />
+            <div className="w-full h-full flex items-center justify-center">
+              {wordCloud.length ? (
+                <WordCloudComponent data={wordCloud} width={1400} height={800} />
               ) : (
                 <div className="flex h-full w-full items-center justify-center rounded-2xl border border-slate-800 bg-slate-950/70">
                   <p className="text-sm text-slate-400">Generate a word cloud first to view it in expanded mode.</p>
