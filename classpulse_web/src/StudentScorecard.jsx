@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL, authFetch } from './apiClient';
 
 const POLL_INTERVAL_MS = 4000;
@@ -22,9 +23,16 @@ function getWordTierClasses(weight) {
 }
 
 export default function StudentScorecard({ score, totalPoints, studentName, quizTitle, quizId, onResetMock }) {
+  const navigate = useNavigate();
   const [sharedAnalytics, setSharedAnalytics] = useState(null);
   const [defaultQuestionId, setDefaultQuestionId] = useState(null);
   const pollingRef = useRef(null);
+
+  const handleRetakeQuiz = () => {
+    // Parent reset clears previous submission result and quiz/session state.
+    onResetMock?.();
+    navigate('/student');
+  };
 
   useEffect(() => {
     if (!quizId) {
@@ -123,6 +131,12 @@ export default function StudentScorecard({ score, totalPoints, studentName, quiz
 
       <h3 className="text-2xl font-bold text-slate-800">Submission Confirmed</h3>
       <p className="mt-2 text-sm text-slate-500">Thank you! Your responses have been successfully sent to the instructor.</p>
+      <button
+        onClick={handleRetakeQuiz}
+        className="mt-4 px-6 py-2 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-lg transition-colors"
+      >
+        Retake Quiz
+      </button>
       
       <div className="my-6 border-y-2 border-slate-100 py-4 text-left space-y-2 text-sm font-medium text-slate-700">
         <p><span className="text-slate-400">Quiz:</span> <span className="text-slate-900 font-bold">{quizTitle || 'Default Sandbox Quiz'}</span></p>

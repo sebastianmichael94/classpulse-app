@@ -1483,6 +1483,22 @@ class QuizViewSet(viewsets.ModelViewSet):
     queryset = Quiz.objects.prefetch_related('questions').all()
     serializer_class = QuizSerializer
 
+    def get_queryset(self):
+        base_qs = Quiz.objects.prefetch_related('questions').all().order_by('-created_at')
+
+        if getattr(self, 'action', None) != 'list':
+            return base_qs
+
+        user = getattr(self.request, 'user', None)
+        if not user or not user.is_authenticated:
+            return Quiz.objects.none()
+
+        role = getattr(getattr(user, 'profile', None), 'role', None)
+        if role == 'professor':
+            return base_qs.filter(created_by=user)
+
+        return Quiz.objects.none()
+
     def get_serializer_class(self):
         return QuizSerializer
 
@@ -1848,6 +1864,7 @@ class QuizViewSet(viewsets.ModelViewSet):
         for submission in submissions:
             choice_badge = 'N/A'
             text_fragments = []
+            detailed_answers = []
 
             for answer_item in submission.answers or []:
                 if not isinstance(answer_item, dict):
@@ -1861,11 +1878,75 @@ class QuizViewSet(viewsets.ModelViewSet):
                 question_type = normalize_question_type(
                     answer_item.get('question_type') or (question.question_type if question else None)
                 )
+                question_options = []
+                if question and isinstance(question.interaction_data, dict):
+                    question_options = question.interaction_data.get('options') or []
+
+                answer_id = None
+                answer_text = ''
+
+                if question_type in {'Multiple Choice', 'True/False', 'Multiple Answers'}:
+                    if question_type == 'True/False' and not question_options:
+                        question_options = ['True', 'False']
+
+                    def resolve_option_item(raw_item):
+                        if isinstance(raw_item, str):
+                            trimmed = raw_item.strip()
+                            if trimmed in question_options:
+                                option_index = question_options.index(trimmed)
+                                return str(option_index), trimmed
+                            if trimmed.isdigit():
+                                numeric_index = int(trimmed)
+                                if 0 <= numeric_index < len(question_options):
+                                    return str(numeric_index), str(question_options[numeric_index]).strip()
+                            return trimmed, trimmed
+
+                        if isinstance(raw_item, (int, float)):
+                            numeric_index = int(raw_item)
+                            if 0 <= numeric_index < len(question_options):
+                                return str(numeric_index), str(question_options[numeric_index]).strip()
+                            return str(numeric_index), str(numeric_index)
+
+                        fallback = str(raw_item or '').strip()
+                        return fallback, fallback
+
+                    if isinstance(answer_value, list):
+                        resolved_pairs = [resolve_option_item(item) for item in answer_value]
+                        answer_id = [pair[0] for pair in resolved_pairs if str(pair[0]).strip()]
+                        labels = [pair[1] for pair in resolved_pairs if str(pair[1]).strip()]
+                        answer_text = ', '.join(labels)
+                    else:
+                        resolved_id, resolved_text = resolve_option_item(answer_value)
+                        answer_id = resolved_id
+                        answer_text = resolved_text
+                elif isinstance(answer_value, dict):
+                    answer_id = None
+                    answer_text = ' | '.join([
+                        str(value).strip()
+                        for value in answer_value.values()
+                        if str(value).strip()
+                    ])
+                elif isinstance(answer_value, list):
+                    answer_id = None
+                    answer_text = ', '.join([
+                        str(value).strip()
+                        for value in answer_value
+                        if str(value).strip()
+                    ])
+                else:
+                    answer_id = None
+                    answer_text = str(answer_value or '').strip()
+
+                detailed_answers.append({
+                    'question_id': answer_item.get('question_id'),
+                    'question_title': question.question_title if question else 'Unknown Question',
+                    'question_type': question_type,
+                    'answer_id': answer_id,
+                    'answer_text': answer_text,
+                })
 
                 if choice_badge == 'N/A' and question_type in {'Multiple Choice', 'True/False', 'Multiple Answers'}:
-                    options = []
-                    if question and isinstance(question.interaction_data, dict):
-                        options = question.interaction_data.get('options') or []
+                    options = question_options
 
                     if isinstance(answer_value, list):
                         labels = []
@@ -1904,6 +1985,7 @@ class QuizViewSet(viewsets.ModelViewSet):
                 'student_name': submission.student_name,
                 'submitted_at': submission.submitted_at.isoformat(),
                 'choice_badge': choice_badge,
+                'answers': detailed_answers,
                 'response_text': '\n\n'.join(text_fragments) if text_fragments else 'No long-form textual response captured for this submission.',
             })
 

@@ -59,6 +59,11 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
+  const handleOptionSelect = (questionId, optionValue) => {
+    // Immediate local state mutation for instant visual selection feedback.
+    setAnswers((prev) => ({ ...prev, [questionId]: optionValue }));
+  };
+
   const toggleMultipleAnswerOption = (questionId, option) => {
     setAnswers((prev) => {
       const currentValue = Array.isArray(prev[questionId]) ? prev[questionId] : [];
@@ -325,18 +330,28 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
           ? ['True', 'False']
           : interactionData.options || [];
         return (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {radioOptions.map((option, index) => (
-              <label key={index} className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-200">
-                <input
-                  type="radio"
-                  name={currentQuestion.id}
-                  checked={value === option}
-                  onChange={() => updateAnswer(currentQuestion.id, option)}
-                  className="h-4 w-4 border-slate-500 bg-slate-950 text-cyan-500"
-                />
-                <span><MathText value={option} /></span>
-              </label>
+              <div
+                key={index}
+                onClick={() => handleOptionSelect(currentQuestion.id, option)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleOptionSelect(currentQuestion.id, option);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                className={`w-full p-4 my-3 text-left rounded-xl border-2 transition-all duration-150 cursor-pointer select-none touch-manipulation flex items-center space-x-3 ${value === option ? 'border-cyan-500 bg-cyan-950/40 text-cyan-200 shadow-md shadow-cyan-950/20' : 'border-slate-800 bg-slate-900/60 hover:border-slate-700 text-slate-300'}`}
+              >
+                <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${value === option ? 'border-cyan-400 bg-cyan-500' : 'border-slate-600'}`}>
+                  {value === option ? <div className="w-2 h-2 rounded-full bg-slate-950" /> : null}
+                </div>
+                <span className="text-base md:text-lg font-medium leading-relaxed block w-full">
+                  <MathText value={option} />
+                </span>
+              </div>
             ))}
           </div>
         );

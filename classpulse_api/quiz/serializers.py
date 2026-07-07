@@ -67,10 +67,47 @@ class QuizSerializer(serializers.ModelSerializer):
 
 
 class SubmissionSerializer(serializers.ModelSerializer):
+    answer_records = serializers.SerializerMethodField()
+
     class Meta:
         model = Submission
-        fields = ['id', 'quiz', 'student_name', 'answers', 'score', 'total_possible', 'submitted_at']
+        fields = ['id', 'quiz', 'student_name', 'answers', 'answer_records', 'score', 'total_possible', 'submitted_at']
         read_only_fields = ['score', 'total_possible', 'submitted_at']
+
+    def get_answer_records(self, obj):
+        records = []
+        answer_items = obj.answers if isinstance(obj.answers, list) else []
+
+        for answer_item in answer_items:
+            if not isinstance(answer_item, dict):
+                continue
+
+            answer_value = answer_item.get('answer')
+            answer_text = ''
+            answer_id = None
+
+            if isinstance(answer_value, dict):
+                answer_text = ' | '.join([
+                    str(value).strip()
+                    for value in answer_value.values()
+                    if str(value).strip()
+                ])
+            elif isinstance(answer_value, list):
+                flattened = [str(value).strip() for value in answer_value if str(value).strip()]
+                answer_text = ', '.join(flattened)
+                answer_id = flattened if flattened else None
+            else:
+                answer_text = str(answer_value or '').strip()
+                answer_id = str(answer_value).strip() if str(answer_value or '').strip() else None
+
+            records.append({
+                'question_id': answer_item.get('question_id'),
+                'answer_text': answer_text,
+                'answer_id': answer_id,
+                'question_type': answer_item.get('question_type'),
+            })
+
+        return records
 
 
 class SubmissionCreateSerializer(serializers.ModelSerializer):

@@ -152,7 +152,6 @@ export default function LiveAnalytics({
   const [chatMessages, setChatMessages] = useState([]);
   const [assistantError, setAssistantError] = useState('');
   const [isSendingPrompt, setIsSendingPrompt] = useState(false);
-  const [sharingPromptId, setSharingPromptId] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [sessionStatus, setSessionStatus] = useState(() => String(initialSessionStatus || 'READY'));
   const [durationMinutes, setDurationMinutes] = useState(() => Number(initialDurationMinutes || 10) || 10);
@@ -782,51 +781,6 @@ export default function LiveAnalytics({
     }
   };
 
-  const handleSharePromptResponse = async (promptId) => {
-    if ((!quizId && !resolvedAccessCode) || !promptId || sharingPromptId) {
-      return;
-    }
-
-    setSharingPromptId(promptId);
-    setAssistantError('');
-
-    try {
-      const response = await authFetch(`${API_BASE_URL}/api/custom-analytics-prompt/share/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          quiz_id: quizId || undefined,
-          access_code: resolvedAccessCode || undefined,
-          prompt_id: promptId,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Unable to share this AI insight with students.');
-      }
-
-      const payload = await response.json();
-      setChatMessages((prev) => prev.map((item) => (
-        item.id === promptId ? { ...item, is_announcement: true } : item
-      )));
-
-      setAnalytics((prev) => ({
-        ...(prev || {}),
-        shared_insight_text: payload.shared_insight_text,
-        shared_insight_updated_at: payload.shared_insight_updated_at,
-        custom_prompt_history: (prev?.custom_prompt_history || []).map((item) => (
-          item.id === promptId ? { ...item, is_announcement: true } : item
-        )),
-      }));
-    } catch (err) {
-      setAssistantError(err.message || 'Unable to share this AI insight with students.');
-    } finally {
-      setSharingPromptId(null);
-    }
-  };
-
   return (
     <div className="w-full rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 text-slate-100 shadow-[0_25px_65px_rgba(2,6,23,0.65)] md:p-8">
       <section className="mb-6 rounded-3xl border border-slate-800/90 bg-slate-900/70 p-5 md:p-6">
@@ -1075,20 +1029,6 @@ export default function LiveAnalytics({
                     <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-3 text-sm text-violet-100">
                       <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-violet-300">AI Response</p>
                       <p className="whitespace-pre-wrap">{item.response_text}</p>
-                      <div className="mt-3 flex justify-end">
-                        <button
-                          type="button"
-                          disabled={item.is_announcement || sharingPromptId === item.id || !item.id}
-                          onClick={() => {
-                            if (item.id) {
-                              handleSharePromptResponse(item.id);
-                            }
-                          }}
-                          className="rounded-lg border border-cyan-400/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-cyan-200 transition-all hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {item.is_announcement ? 'Shared with class' : sharingPromptId === item.id ? 'Sharing...' : '📢 Share with class'}
-                        </button>
-                      </div>
                     </div>
                   </div>
                 )) : (
@@ -1176,8 +1116,22 @@ export default function LiveAnalytics({
 
                     {isExpanded ? (
                       <div className="px-4 pb-4">
-                        <div className="bg-slate-950/60 p-3 rounded-xl text-slate-300 text-sm italic max-h-56 overflow-y-auto whitespace-pre-wrap">
-                          {submission.response_text}
+                        <div className="bg-slate-950/60 p-3 rounded-xl max-h-72 overflow-y-auto space-y-3">
+                          {Array.isArray(submission.answers) && submission.answers.length > 0 ? submission.answers.map((ans, index) => (
+                            <div key={`${submission.submission_id}-${ans.question_id || index}`} className="p-3 rounded-xl border border-slate-800 bg-slate-900/70">
+                              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                                Question: {ans.question_title || 'Unknown Question'}
+                              </p>
+                              <p className="mt-2 text-sm font-medium text-cyan-300 bg-slate-950 p-3 rounded-lg border border-slate-800/60">
+                                Student Response:{' '}
+                                <span className="text-slate-100">{String(ans.answer_text || '').trim() || 'No response provided'}</span>
+                              </p>
+                            </div>
+                          )) : (
+                            <div className="bg-slate-950/60 p-3 rounded-xl text-slate-300 text-sm italic whitespace-pre-wrap">
+                              {submission.response_text}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ) : null}

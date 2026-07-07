@@ -193,7 +193,38 @@ function AppRoutes() {
   const [publishedQuizzes, setPublishedQuizzes] = useState([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
-  const [professorView, setProfessorView] = useState('live');
+  const [activeTab, setActiveTab] = useState('welcome');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    const fetchQuizHistory = async () => {
+      if (!isProfessor) {
+        setPublishedQuizzes([]);
+        return;
+      }
+
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/quizzes/`, {
+          headers: buildAuthHeaders(),
+        });
+
+        const payload = response?.data;
+        const historyItems = Array.isArray(payload)
+          ? payload
+          : (Array.isArray(payload?.results) ? payload.results : []);
+
+        const normalizedHistory = historyItems
+          .map((quiz) => normalizeQuizPayload(quiz))
+          .filter(Boolean);
+
+        setPublishedQuizzes(normalizedHistory);
+      } catch (err) {
+        console.error('Failed to load quiz history', err);
+      }
+    };
+
+    fetchQuizHistory();
+  }, [isProfessor]);
 
   useEffect(() => {
     initializeHttpAuthFromStorage();
@@ -277,7 +308,7 @@ function AppRoutes() {
         const normalizedQuiz = normalizeQuizPayload(payload);
         setActiveQuiz(normalizedQuiz);
         writeStoredActiveQuizPayload(normalizedQuiz);
-        setProfessorView('live');
+        setActiveTab('host');
       } catch {
         clearStoredActiveQuizId();
         clearStoredActiveQuizPayload();
@@ -322,7 +353,7 @@ function AppRoutes() {
         setPublishedQuizId(String(normalizedQuiz.id));
         writeStoredActiveQuizId(String(normalizedQuiz.id));
         writeStoredActiveQuizPayload(normalizedQuiz);
-        setProfessorView('live');
+        setActiveTab('host');
       } catch {
         // Graceful no-op: history recovery is a best-effort safety net.
       }
@@ -377,7 +408,7 @@ function AppRoutes() {
     });
 
     setPublishedQuizId(normalizedQuizId);
-    setProfessorView('live');
+  setActiveTab('host');
 
     if (normalizedStatus === 'ACTIVE') {
       writeStoredActiveQuizId(normalizedQuizId);
@@ -518,6 +549,57 @@ function AppRoutes() {
     }
   };
 
+  const handleLaunchQuizFromHistory = async (quizRecord) => {
+    const quizId = String(quizRecord?.id || '').trim();
+    if (!quizId) {
+      return;
+    }
+
+    try {
+      const response = await authFetch(`${API_BASE_URL}/api/quizzes/${quizId}/`);
+      if (!response.ok) {
+        throw new Error('Unable to open this saved quiz right now.');
+      }
+
+      const payload = await response.json();
+      const normalizedQuiz = normalizeQuizPayload(payload);
+      if (!normalizedQuiz?.id) {
+        throw new Error('Quiz payload is incomplete.');
+      }
+
+      setActiveQuiz(normalizedQuiz);
+      setPublishedQuizId(String(normalizedQuiz.id));
+      writeStoredActiveQuizId(String(normalizedQuiz.id));
+      writeStoredActiveQuizPayload(normalizedQuiz);
+      setActiveTab('host');
+
+      const startResponse = await authFetch(`${API_BASE_URL}/api/quizzes/start/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          quiz_id: normalizedQuiz.id,
+          access_code: normalizedQuiz.access_code || undefined,
+        }),
+      });
+
+      if (startResponse.ok) {
+        const startPayload = await startResponse.json().catch(() => ({}));
+        handleLiveQuizSessionStateChange({
+          quizId: startPayload.quiz_id || normalizedQuiz.id,
+          status: startPayload.status || 'ACTIVE',
+          startedAt: startPayload.started_at || new Date().toISOString(),
+          durationMinutes: Number(startPayload.duration_minutes || normalizedQuiz.duration_minutes || normalizedQuiz.time_limit_minutes || 10) || 10,
+        });
+      }
+
+      navigate('/instructor', { replace: true });
+    } catch (err) {
+      setPublishError(err.message || 'Unable to launch this quiz.');
+    }
+  };
+
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
@@ -527,62 +609,145 @@ function AppRoutes() {
       <Route
         path="/instructor"
         element={isProfessor ? (
-          <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100">
-            <div className="mx-auto flex max-w-7xl flex-col gap-6">
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl">
-                <p className="text-xs font-mono uppercase tracking-[0.3em] text-cyan-400">Live Class Controller</p>
-                <h1 className="mt-2 text-3xl font-semibold text-white">Professor Control Center</h1>
-                <p className="mt-2 max-w-2xl text-sm text-slate-400">Use the Quiz Publishing Panel to finalize questions and monitor live classroom analytics as submissions arrive.</p>
+          <div className="min-h-screen bg-slate-950 text-slate-100 md:flex">
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen((prev) => !prev)}
+              className="fixed left-4 top-4 z-50 inline-flex items-center justify-center rounded-xl border border-slate-700 bg-slate-900/90 p-2 text-slate-200 md:left-6 md:top-6"
+              aria-label="Toggle navigation menu"
+            >
+              <span className="text-lg leading-none">☰</span>
+            </button>
 
-                <div className="mt-4 inline-flex rounded-xl border border-slate-700 bg-slate-950 p-1">
-                  <button
-                    type="button"
-                    onClick={() => setProfessorView('live')}
-                    className={`px-4 py-2 text-xs font-semibold uppercase tracking-wide rounded-lg transition-all ${professorView === 'live' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}
-                  >
-                    Live Console
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setProfessorView('vault')}
-                    className={`px-4 py-2 text-xs font-semibold uppercase tracking-wide rounded-lg transition-all ${professorView === 'vault' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}
-                  >
-                    📁 Assessment Vault & History
-                  </button>
-                </div>
+            {isSidebarOpen ? (
+              <button
+                type="button"
+                className="fixed inset-0 z-30 bg-slate-950/70 md:hidden"
+                onClick={() => setIsSidebarOpen(false)}
+                aria-label="Close sidebar overlay"
+              />
+            ) : null}
+
+            <aside
+              className={`fixed left-0 top-0 z-40 w-64 min-h-screen bg-slate-900 border-r border-slate-800 p-4 flex flex-col space-y-2 text-slate-300 transform transition-transform duration-300 md:static md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+            >
+              <div className="mt-14 md:mt-2">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-400">Instructor Workspace</p>
+                <h2 className="mt-2 text-xl font-semibold text-white">Dr. Reshma Panel</h2>
               </div>
 
-              {professorView === 'live' ? (
-                <>
-                  <QuizHeaderForm onSaveHeader={handleHeaderSave} />
-                  <QuizCreator
-                    onSaveQuestion={handleSaveQuestion}
-                    questionList={activeQuestionList}
-                    onDeleteQuestion={handleDeleteQuestion}
-                    onReorderQuestion={handleReorderQuestion}
-                  />
-                  <ProfessorDashboard
-                    activeQuiz={activeQuiz || quizHeader}
-                    draftQuestions={activeQuestionList}
-                    onPublish={handlePublish}
-                    questionCount={activeQuestionList.length}
-                    isPublishing={isPublishing}
-                    publishError={publishError}
-                    publishedQuizzes={publishedQuizzes}
-                  />
-                  <LiveAnalytics
-                    quizId={publishedQuizId || activeQuiz?.id}
-                    accessCode={activeQuiz?.access_code || activeQuiz?.accessCode || ''}
-                    onSessionStateChange={handleLiveQuizSessionStateChange}
-                    initialSessionStatus={activeQuiz?.status || activeQuiz?.quiz_status || 'READY'}
-                    initialStartedAt={activeQuiz?.started_at || null}
-                    initialDurationMinutes={activeQuiz?.duration_minutes || activeQuiz?.time_limit_minutes || activeQuiz?.timeLimit || 10}
-                  />
-                </>
-              ) : (
-                <ProfessorHistoryVault />
-              )}
-            </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('welcome');
+                  if (window.innerWidth < 768) {
+                    setIsSidebarOpen(false);
+                  }
+                }}
+                className={`w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'welcome' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-950/70 text-slate-300 hover:text-white'}`}
+              >
+                🏠 Welcome Home
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('host');
+                  if (window.innerWidth < 768) {
+                    setIsSidebarOpen(false);
+                  }
+                }}
+                className={`w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'host' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-950/70 text-slate-300 hover:text-white'}`}
+              >
+                🚀 Host a New Quiz
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('history');
+                  if (window.innerWidth < 768) {
+                    setIsSidebarOpen(false);
+                  }
+                }}
+                className={`w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'history' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-950/70 text-slate-300 hover:text-white'}`}
+              >
+                📊 Hosted Quizzes History
+              </button>
+            </aside>
+
+            <main className="flex-1 p-8 bg-slate-950 overflow-y-auto md:ml-0">
+              <div className="mx-auto mt-12 md:mt-0 flex max-w-7xl flex-col gap-6">
+                {activeTab === 'welcome' ? (
+                  <section className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/50 p-8 shadow-2xl">
+                    <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">Instructor Greeting</p>
+                    <h1 className="mt-3 text-3xl font-semibold text-white md:text-4xl">Welcome back, Dr. Reshma Menon</h1>
+                    <p className="mt-3 max-w-2xl text-sm text-slate-300">Start a fresh classroom session or jump into historical analytics with one click.</p>
+
+                    <div className="mt-8 grid gap-4 md:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('host')}
+                        className="rounded-2xl border border-cyan-400/30 bg-cyan-500/10 p-5 text-left transition-all hover:bg-cyan-500/20"
+                      >
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-300">Quick Action</p>
+                        <p className="mt-2 text-lg font-semibold text-white">Host a Live Session</p>
+                        <p className="mt-1 text-sm text-slate-300">Build, publish, and launch your next quiz instantly.</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('history')}
+                        className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-5 text-left transition-all hover:bg-emerald-500/20"
+                      >
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-300">Quick Action</p>
+                        <p className="mt-2 text-lg font-semibold text-white">Review Past Analytics</p>
+                        <p className="mt-1 text-sm text-slate-300">Open archived quizzes and relaunch sessions with metrics.</p>
+                      </button>
+                    </div>
+                  </section>
+                ) : null}
+
+                {activeTab === 'host' ? (
+                  <>
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl">
+                      <p className="text-xs font-mono uppercase tracking-[0.3em] text-cyan-400">Live Class Controller</p>
+                      <h1 className="mt-2 text-3xl font-semibold text-white">Professor Control Center</h1>
+                      <p className="mt-2 max-w-2xl text-sm text-slate-400">Use the Quiz Publishing Panel to finalize questions and monitor live classroom analytics as submissions arrive.</p>
+                    </div>
+                    <QuizHeaderForm onSaveHeader={handleHeaderSave} />
+                    <QuizCreator
+                      onSaveQuestion={handleSaveQuestion}
+                      questionList={activeQuestionList}
+                      onDeleteQuestion={handleDeleteQuestion}
+                      onReorderQuestion={handleReorderQuestion}
+                    />
+                    <ProfessorDashboard
+                      activeQuiz={activeQuiz || quizHeader}
+                      draftQuestions={activeQuestionList}
+                      onPublish={handlePublish}
+                      onLaunchQuiz={handleLaunchQuizFromHistory}
+                      questionCount={activeQuestionList.length}
+                      isPublishing={isPublishing}
+                      publishError={publishError}
+                      publishedQuizzes={publishedQuizzes}
+                    />
+                    <LiveAnalytics
+                      quizId={publishedQuizId || activeQuiz?.id}
+                      accessCode={activeQuiz?.access_code || activeQuiz?.accessCode || ''}
+                      onSessionStateChange={handleLiveQuizSessionStateChange}
+                      initialSessionStatus={activeQuiz?.status || activeQuiz?.quiz_status || 'READY'}
+                      initialStartedAt={activeQuiz?.started_at || null}
+                      initialDurationMinutes={activeQuiz?.duration_minutes || activeQuiz?.time_limit_minutes || activeQuiz?.timeLimit || 10}
+                    />
+                  </>
+                ) : null}
+
+                {activeTab === 'history' ? (
+                  <ProfessorHistoryVault onLaunchQuiz={handleLaunchQuizFromHistory} />
+                ) : null}
+              </div>
+            </main>
           </div>
         ) : (
           <Navigate to="/login?role=professor" replace />

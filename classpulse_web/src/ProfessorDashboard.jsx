@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 
-export default function ProfessorDashboard({ activeQuiz, draftQuestions = [], onPublish, questionCount, isPublishing, publishError, publishedQuizzes = [] }) {
+export default function ProfessorDashboard({ activeQuiz, draftQuestions = [], onPublish, onLaunchQuiz, questionCount, isPublishing, publishError, publishedQuizzes = [] }) {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
   const canvasRef = useRef(null);
   const modalCanvasRef = useRef(null);
 
@@ -78,16 +78,19 @@ export default function ProfessorDashboard({ activeQuiz, draftQuestions = [], on
   };
 
   useEffect(() => {
-    const renderQr = (targetCanvas, width) => {
+    const renderQr = (targetCanvas, widthHint) => {
       if (!targetCanvas) {
         return;
       }
+
+      const containerWidth = targetCanvas.parentElement?.clientWidth || 0;
+      const responsiveWidth = Math.max(120, Math.min(1200, containerWidth || Number(widthHint || 220)));
 
       QRCode.toCanvas(
         targetCanvas,
         generatedQuizUrl,
         {
-          width,
+          width: responsiveWidth,
           margin: 1,
           color: {
             dark: '#020617',
@@ -101,28 +104,28 @@ export default function ProfessorDashboard({ activeQuiz, draftQuestions = [], on
     };
 
     if (!isPreviewMode) {
-      renderQr(canvasRef.current, 140);
+      renderQr(canvasRef.current, 220);
     }
 
-    if (isQrModalOpen) {
-      renderQr(modalCanvasRef.current, 460);
+    if (isZoomed) {
+      renderQr(modalCanvasRef.current, 900);
     }
-  }, [generatedQuizUrl, isPreviewMode, isQrModalOpen]);
+  }, [generatedQuizUrl, isPreviewMode, isZoomed]);
 
   useEffect(() => {
-    if (!isQrModalOpen) {
+    if (!isZoomed) {
       return undefined;
     }
 
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
-        setIsQrModalOpen(false);
+        setIsZoomed(false);
       }
     };
 
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [isQrModalOpen]);
+  }, [isZoomed]);
 
   return (
     <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl text-slate-100 transition-all duration-300">
@@ -199,8 +202,17 @@ export default function ProfessorDashboard({ activeQuiz, draftQuestions = [], on
                 <div className="space-y-2">
                   {publishedQuizzes.slice(0, 3).map((quiz) => (
                     <div key={quiz.id} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-3 py-2">
-                      <span className="text-sm text-slate-200 truncate">{quiz.title}</span>
-                      <span className="text-xs font-mono text-emerald-400">PIN {quiz.access_code || '----'}</span>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-sm text-slate-200 truncate block">{quiz.title}</span>
+                        <span className="text-xs font-mono text-emerald-400">PIN {quiz.access_code || '----'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onLaunchQuiz?.(quiz)}
+                        className="ml-3 rounded-lg border border-cyan-400/40 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-cyan-200 transition-all hover:bg-cyan-500/20"
+                      >
+                        Start Live Session
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -211,13 +223,13 @@ export default function ProfessorDashboard({ activeQuiz, draftQuestions = [], on
           <div className="flex flex-col items-center justify-center border-t md:border-t-0 md:border-l border-slate-800 pt-6 md:pt-0 md:pl-8 text-center">
             <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Classroom Access Portal</span>
             
-            <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-200 flex items-center justify-center transition-all hover:scale-[1.01]">
-              <canvas ref={canvasRef} />
+            <div className="w-full max-w-[240px] aspect-square mx-auto flex items-center justify-center p-2 bg-white rounded-xl shadow-inner">
+              <canvas ref={canvasRef} className="w-full h-full object-contain" />
             </div>
 
             <button
               type="button"
-              onClick={() => setIsQrModalOpen(true)}
+              onClick={() => setIsZoomed(true)}
               className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-cyan-300 transition-all hover:border-cyan-500/60 hover:text-cyan-200"
             >
               Maximize QR
@@ -254,40 +266,34 @@ export default function ProfessorDashboard({ activeQuiz, draftQuestions = [], on
         </div>
       )}
 
-      {isQrModalOpen ? (
+      {isZoomed ? (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md p-6"
           onClick={(event) => {
             if (event.target === event.currentTarget) {
-              setIsQrModalOpen(false);
+              setIsZoomed(false);
             }
           }}
           role="dialog"
           aria-modal="true"
           aria-label="Expanded QR code"
         >
-          <div className="relative w-full max-w-2xl rounded-3xl border border-slate-700 bg-slate-900 p-6 md:p-8 text-center shadow-2xl shadow-cyan-950/20 transition-all duration-300">
+          <div className="relative w-full max-w-[85vmin] aspect-square bg-white p-6 rounded-2xl shadow-2xl flex items-center justify-center transition-all transform scale-100">
             <button
               type="button"
-              onClick={() => setIsQrModalOpen(false)}
-              className="absolute right-4 top-4 h-10 w-10 rounded-full border border-slate-700 bg-slate-950 text-slate-300 transition-colors hover:text-rose-300 hover:border-rose-400/50"
+              onClick={() => setIsZoomed(false)}
+              className="absolute right-4 top-4 h-10 w-10 rounded-full border border-slate-300 bg-white text-slate-600 transition-colors hover:text-rose-500 hover:border-rose-300"
               aria-label="Close expanded QR"
             >
               X
             </button>
 
-            <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">Live Access Gateway</p>
-            <h3 className="mt-2 text-xl font-semibold text-white">Scan To Join Quiz Session</h3>
-
-            <div className="mx-auto mt-6 w-fit rounded-2xl border border-slate-300 bg-white p-4 shadow-lg">
-              <canvas ref={modalCanvasRef} />
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/80 p-5">
-              <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Access PIN</p>
-              <p className="mt-2 text-5xl md:text-6xl font-black tracking-widest text-cyan-400">{accessCode || '----'}</p>
-            </div>
+            <canvas ref={modalCanvasRef} className="w-full h-full object-contain" />
           </div>
+
+          <p className="mt-6 text-xl font-medium text-cyan-400 tracking-wide bg-slate-900/60 px-6 py-2 rounded-full border border-slate-800">
+            Scan to Join • Click anywhere to dismiss
+          </p>
         </div>
       ) : null}
 

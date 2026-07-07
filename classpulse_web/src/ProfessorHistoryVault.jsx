@@ -13,7 +13,7 @@ function formatDate(value) {
   return date.toLocaleString();
 }
 
-export default function ProfessorHistoryVault() {
+export default function ProfessorHistoryVault({ onLaunchQuiz }) {
   const [historyRows, setHistoryRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -111,13 +111,22 @@ export default function ProfessorHistoryVault() {
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-300">{row.has_ai_summary_cached ? 'Cached' : 'Not Cached'}</td>
                 <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedQuiz(row)}
-                    className="rounded-lg border border-violet-400/40 bg-violet-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-violet-200 transition-all hover:bg-violet-500/20"
-                  >
-                    🔍 Open Archives
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onLaunchQuiz?.(row)}
+                      className="rounded-lg border border-cyan-400/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-cyan-200 transition-all hover:bg-cyan-500/20"
+                    >
+                      ▶ Start Live Session
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQuiz(row)}
+                      className="rounded-lg border border-violet-400/40 bg-violet-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-violet-200 transition-all hover:bg-violet-500/20"
+                    >
+                      🔍 Open Archives
+                    </button>
+                  </div>
                 </td>
               </tr>
             )) : (
