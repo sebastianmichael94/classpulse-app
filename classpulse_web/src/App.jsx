@@ -608,7 +608,7 @@ function AppRoutes() {
       <Route
         path="/instructor"
         element={isProfessor ? (
-          <div className="flex w-full min-h-screen bg-slate-50 text-slate-900 font-sans dark:bg-slate-950 dark:text-slate-100">
+          <div className="flex w-full min-h-screen bg-slate-950 text-slate-100 font-sans">
             <aside className="w-64 min-h-screen bg-slate-900 border-r border-slate-800 p-6 flex flex-col space-y-2 flex-shrink-0 text-slate-100">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-400">Instructor Workspace</p>
@@ -640,33 +640,33 @@ function AppRoutes() {
               </button>
             </aside>
 
-            <main className="flex-1 p-8 bg-slate-50 dark:bg-slate-950 min-h-screen overflow-y-auto transition-colors">
+            <main className="flex-1 p-8 bg-slate-950 overflow-y-auto min-h-screen">
               <div className="mx-auto flex max-w-7xl flex-col gap-6">
                 {activeTab === 'welcome' ? (
-                  <section className="p-8 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
-                    <p className="text-xs uppercase tracking-[0.3em] text-cyan-500 dark:text-cyan-300">Instructor Greeting</p>
-                    <h1 className="mt-3 text-3xl font-semibold text-slate-900 md:text-4xl dark:text-slate-100">Welcome back, Dr. Reshma Menon</h1>
-                    <p className="mt-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Start a fresh classroom session or jump into historical analytics with one click.</p>
+                  <section className="p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl">
+                    <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">Instructor Greeting</p>
+                    <h1 className="mt-3 text-3xl font-semibold text-white md:text-4xl">Welcome back, Dr. Reshma Menon</h1>
+                    <p className="mt-3 max-w-2xl text-sm text-slate-300">Start a fresh classroom session or jump into historical analytics with one click.</p>
 
                     <div className="mt-8 grid gap-4 md:grid-cols-2">
                       <button
                         type="button"
                         onClick={() => setActiveTab('host')}
-                        className="p-6 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
+                        className="p-6 bg-slate-900/40 border border-slate-800 rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
                       >
-                        <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-500 dark:text-cyan-300">Quick Action</p>
-                        <p className="text-lg font-bold text-slate-800 dark:text-slate-200 mt-2">Host a Live Session</p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Build, publish, and launch your next quiz instantly.</p>
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-400">Quick Action</p>
+                        <p className="text-lg font-bold text-slate-200 mt-2">Host a Live Session</p>
+                        <p className="text-sm text-slate-400 mt-1">Build, publish, and launch your next quiz instantly.</p>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setActiveTab('history')}
-                        className="p-6 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
+                        className="p-6 bg-slate-900/40 border border-slate-800 rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
                       >
-                        <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-500 dark:text-cyan-300">Quick Action</p>
-                        <p className="text-lg font-bold text-slate-800 dark:text-slate-200 mt-2">Review Past Analytics</p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Open archived quizzes and relaunch sessions with metrics.</p>
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-400">Quick Action</p>
+                        <p className="text-lg font-bold text-slate-200 mt-2">Review Past Analytics</p>
+                        <p className="text-sm text-slate-400 mt-1">Open archived quizzes and relaunch sessions with metrics.</p>
                       </button>
                     </div>
                   </section>
@@ -674,10 +674,10 @@ function AppRoutes() {
 
                 {activeTab === 'host' ? (
                   <>
-                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900/80 dark:shadow-2xl">
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl">
                       <p className="text-xs font-mono uppercase tracking-[0.3em] text-cyan-400">Live Class Controller</p>
-                      <h1 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Professor Control Center</h1>
-                      <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400">Use the Quiz Publishing Panel to finalize questions and monitor live classroom analytics as submissions arrive.</p>
+                      <h1 className="mt-2 text-3xl font-semibold text-white">Professor Control Center</h1>
+                      <p className="mt-2 max-w-2xl text-sm text-slate-400">Use the Quiz Publishing Panel to finalize questions and monitor live classroom analytics as submissions arrive.</p>
                     </div>
                     <QuizHeaderForm onSaveHeader={handleHeaderSave} />
                     <QuizCreator
@@ -739,7 +739,7 @@ function AppRoutes() {
         path="/scorecard"
         element={(
           submissionResult ? (
-            <div className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 flex items-center justify-center dark:bg-slate-950 dark:text-slate-100">
+            <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100 flex items-center justify-center">
               <StudentScorecard
                 score={submissionResult.score}
                 totalPoints={submissionResult.total_possible}
@@ -759,28 +759,8 @@ function AppRoutes() {
 }
 
 export default function App() {
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
-
-  useEffect(() => {
-    const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'));
-
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
-      <button
-        onClick={toggleTheme}
-        className="fixed top-4 right-4 z-50 px-3 py-1.5 rounded-full border text-xs font-semibold backdrop-blur-md transition-all duration-200 dark:bg-slate-900/80 dark:text-slate-200 dark:border-slate-800 dark:hover:bg-slate-800 bg-white/90 text-slate-800 border-slate-200 hover:bg-slate-100 shadow-sm"
-      >
-        {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
-      </button>
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
       <BrowserRouter>
         <AppRoutes />
       </BrowserRouter>

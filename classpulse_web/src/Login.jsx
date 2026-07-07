@@ -73,11 +73,11 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors px-4 py-10">
-      <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl w-full max-w-md">
+    <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-10 flex items-center justify-center">
+      <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl">
         <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">ClassPulse Access</p>
-        <h1 className="mt-3 text-3xl font-bold text-slate-900 dark:text-white">Welcome back</h1>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Teacher Portal login. Authorized administrator credentials only.</p>
+        <h1 className="mt-3 text-3xl font-semibold text-white">Welcome back</h1>
+        <p className="mt-2 text-sm text-slate-400">Teacher Portal login. Authorized administrator credentials only.</p>
 
         <form onSubmit={handleLogin} className="mt-6 space-y-4">
           <input
@@ -86,7 +86,7 @@ export default function Login() {
             value={credentials.email}
             onChange={handleChange}
             placeholder="Email"
-            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-cyan-400 transition-colors"
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
             required
           />
           <input
@@ -95,7 +95,7 @@ export default function Login() {
             value={credentials.password}
             onChange={handleChange}
             placeholder="Password"
-            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-cyan-400 transition-colors"
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
             required
           />
 
