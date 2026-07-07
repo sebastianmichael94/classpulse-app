@@ -13,8 +13,8 @@ export default function ProfessorDashboard({ activeQuiz, draftQuestions = [], on
   const effectiveQuestionCount = questionCount > 0 ? questionCount : normalizedQuestions.length;
   const accessCode = activeQuiz?.access_code || activeQuiz?.accessCode || '';
   const generatedQuizUrl = accessCode
-    ? `http://localhost:5173/quiz/${encodeURIComponent(accessCode)}`
-    : 'http://localhost:5173/student';
+    ? `https://classpulse-app-blond.vercel.app/quiz/${encodeURIComponent(accessCode)}`
+    : 'https://classpulse-app-blond.vercel.app/student';
 
   const renderPreviewInput = (question) => {
     const interaction = question?.interaction_data || {};
