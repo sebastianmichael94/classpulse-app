@@ -395,42 +395,132 @@ NEGATIVE_MOOD_TERMS = {'sad', 'tired', 'stressed', 'confused', 'lost', 'anxious'
 def build_local_prompt_response(prompt_text, answers):
     normalized_prompt = str(prompt_text or '').strip() or 'the submitted responses'
     fragments = [str(item).strip() for item in (answers or []) if str(item).strip()]
-    total = len(fragments)
-
     word_counts = build_word_counts_from_texts(fragments)
-    ranked_terms = [word for word, _ in sorted(word_counts.items(), key=lambda item: item[1], reverse=True)[:3]]
-    term_text = ', '.join(ranked_terms) if ranked_terms else 'limited recurring terminology'
+    top_terms = [word for word, _ in sorted(word_counts.items(), key=lambda item: item[1], reverse=True)[:3]]
+    focus_terms = ', '.join(top_terms[:2]) if top_terms else 'core concept language'
 
-    positive_hits = 0
-    negative_hits = 0
-    for fragment in fragments:
-        words = {word.strip().lower() for word in re.findall(r"[A-Za-z0-9]+", fragment)}
-        positive_hits += len(words.intersection(POSITIVE_MOOD_TERMS))
-        negative_hits += len(words.intersection(NEGATIVE_MOOD_TERMS))
-
-    prompt_lower = normalized_prompt.lower()
-    asks_for_mood = any(token in prompt_lower for token in ['mood', 'sentiment', 'feeling', 'emotion'])
-
-    if asks_for_mood:
-        if positive_hits > negative_hits:
-            mood_line = 'Overall class mood appears mostly positive and engaged.'
-        elif negative_hits > positive_hits:
-            mood_line = 'Overall class mood appears mixed with noticeable fatigue or confusion signals.'
-        else:
-            mood_line = 'Overall class mood appears mixed to neutral at this point.'
-
-        return (
-            f"{mood_line} "
-            f"Local insight mode analyzed {total} response fragments for '{normalized_prompt}'. "
-            f"Most visible themes: {term_text}. "
-            'Recommendation: do a quick pulse check and clarify one sticking point before continuing.'
+    if fragments:
+        breakdown = (
+            f"Students are showing partial understanding around {focus_terms}, "
+            "but several responses remain surface-level or incomplete."
+        )
+        recommendation = (
+            "In the next two minutes, restate the key idea in one sentence, then contrast a correct and almost-correct example "
+            "before cold-calling one student to explain the difference."
+        )
+    else:
+        breakdown = (
+            "There are not enough student responses yet to identify a stable understanding pattern or misconception cluster."
+        )
+        recommendation = (
+            "Run a 20-second comprehension check now, then immediately clarify one target concept before proceeding."
         )
 
+    topic_hint = normalized_prompt[:90]
+    if top_terms:
+        follow_up = (
+            f"Multiple-choice check: Which statement best captures today's idea about {topic_hint}?\n"
+            f"A) It mainly depends on {top_terms[0]}\n"
+            f"B) It mainly depends on {top_terms[1] if len(top_terms) > 1 else top_terms[0]}\n"
+            "C) It requires combining both ideas in sequence\n"
+            "D) None of the above"
+        )
+    else:
+        follow_up = (
+            f"Short-answer check: In one sentence, explain the main idea of {topic_hint} and give one concrete example."
+        )
+
+    return format_professor_prompt_response(breakdown, recommendation, follow_up)
+
+
+def strip_developer_artifacts(text_value):
+    text = str(text_value or '').strip()
+    if not text:
+        return ''
+
+    patterns = [
+        r"Local insight mode analyzed[^.]*\.\s*",
+        r"Claude API Pipeline Error:[^\n]*",
+        r"RAW CORE ANALYTICS ENGINE DATA INCOMING:[^\n]*",
+        r"DEBUG:[^\n]*",
+    ]
+
+    for pattern in patterns:
+        text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"\s{2,}", " ", text)
+    return text.strip()
+
+
+def format_professor_prompt_response(breakdown, recommendation, follow_up):
+    clean_breakdown = strip_developer_artifacts(breakdown) or 'Submission patterns are still emerging.'
+    clean_recommendation = strip_developer_artifacts(recommendation) or 'Pause for a quick concept check and reteach one key point.'
+    clean_follow_up = strip_developer_artifacts(follow_up) or 'Ask one short-answer question to verify understanding.'
+
     return (
-        f"Local insight mode analyzed {total} response fragments for '{normalized_prompt}'. "
-        f"Most recurring terms: {term_text}. "
-        'Recommendation: reinforce one strong answer pattern and briefly address one misconception in the next minute.'
+        "📊 Submission Breakdown:\n"
+        f"{clean_breakdown}\n\n"
+        "💡 Immediate Recommendation:\n"
+        f"{clean_recommendation}\n\n"
+        "🎯 Suggested Follow-Up Question:\n"
+        f"{clean_follow_up}"
     )
+
+
+def parse_professor_response_sections(raw_text):
+    text = strip_developer_artifacts(raw_text)
+    if not text:
+        return {
+            'breakdown': '',
+            'recommendation': '',
+            'follow_up': '',
+        }
+
+    parsed_json = parse_json_object(text)
+    if isinstance(parsed_json, dict):
+        return {
+            'breakdown': str(
+                parsed_json.get('submission_breakdown')
+                or parsed_json.get('breakdown')
+                or parsed_json.get('submissionSummary')
+                or ''
+            ).strip(),
+            'recommendation': str(
+                parsed_json.get('immediate_recommendation')
+                or parsed_json.get('recommendation')
+                or parsed_json.get('action')
+                or ''
+            ).strip(),
+            'follow_up': str(
+                parsed_json.get('suggested_follow_up_question')
+                or parsed_json.get('follow_up_question')
+                or parsed_json.get('question')
+                or ''
+            ).strip(),
+        }
+
+    breakdown_match = re.search(
+        r"(?:📊\s*)?Submission Breakdown:\s*([\s\S]*?)(?=(?:💡\s*)?Immediate Recommendation:|$)",
+        text,
+        flags=re.IGNORECASE,
+    )
+    recommendation_match = re.search(
+        r"(?:💡\s*)?Immediate Recommendation:\s*([\s\S]*?)(?=(?:🎯\s*)?Suggested Follow-Up Question:|$)",
+        text,
+        flags=re.IGNORECASE,
+    )
+    follow_up_match = re.search(
+        r"(?:🎯\s*)?Suggested Follow-Up Question:\s*([\s\S]*)$",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    return {
+        'breakdown': (breakdown_match.group(1).strip() if breakdown_match else ''),
+        'recommendation': (recommendation_match.group(1).strip() if recommendation_match else ''),
+        'follow_up': (follow_up_match.group(1).strip() if follow_up_match else ''),
+    }
 
 
 def build_word_cloud_image_data_uri(word_counts, question_seed=''):
@@ -814,7 +904,9 @@ def generate_claude_chat_response(user_prompt, essay_answers):
     prompt_content = (
         f"Professor question: {user_prompt}\n"
         f"Student essay context: {context_blob}\n"
-        "Answer in 3-5 concise educator-facing sentences."
+        "Return ONLY a valid JSON object with exactly these keys: "
+        "submission_breakdown (string), immediate_recommendation (string, 1-2 sentences), "
+        "suggested_follow_up_question (string, should be either one short-answer prompt or one multiple-choice prompt with options)."
     )
 
     anthropic_client = get_anthropic_client()
@@ -836,7 +928,15 @@ def generate_claude_chat_response(user_prompt, essay_answers):
         if not str(response_text).strip():
             raise ValueError('Claude returned an empty response.')
 
-        return str(response_text).strip()
+        sections = parse_professor_response_sections(response_text)
+        if not sections['breakdown'] or not sections['recommendation'] or not sections['follow_up']:
+            return build_prompt_fallback_response(user_prompt, essay_answers, 'Model response missing required sections')
+
+        return format_professor_prompt_response(
+            sections['breakdown'],
+            sections['recommendation'],
+            sections['follow_up'],
+        )
     except Exception as e:
         print(f"Claude API Pipeline Error: {str(e)}")
         return build_prompt_fallback_response(user_prompt, essay_answers, str(e))

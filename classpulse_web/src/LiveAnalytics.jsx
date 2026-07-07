@@ -67,6 +67,63 @@ function normalizeListState(value) {
   return [];
 }
 
+function stripTechnicalFragments(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  return raw
+    .replace(/Local insight mode analyzed[^.]*\.\s*/gi, '')
+    .replace(/Claude API Pipeline Error:[^\n]*/gi, '')
+    .replace(/RAW CORE ANALYTICS ENGINE DATA INCOMING:[^\n]*/gi, '')
+    .replace(/DEBUG:[^\n]*/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function parsePedagogicalSections(value) {
+  const cleaned = stripTechnicalFragments(value);
+  if (!cleaned) {
+    return {
+      submissionBreakdown: 'No instructor summary available yet.',
+      immediateRecommendation: 'Generate a response to receive a tactical recommendation.',
+      suggestedFollowUpQuestion: 'Ask one short-answer check question to validate understanding.',
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed === 'object') {
+      return {
+        submissionBreakdown: String(parsed.submission_breakdown || parsed.breakdown || '').trim(),
+        immediateRecommendation: String(parsed.immediate_recommendation || parsed.recommendation || '').trim(),
+        suggestedFollowUpQuestion: String(parsed.suggested_follow_up_question || parsed.follow_up_question || '').trim(),
+      };
+    }
+  } catch {
+    // Non-JSON payloads are parsed by heading blocks below.
+  }
+
+  const breakdownMatch = cleaned.match(/(?:📊\s*)?Submission Breakdown:\s*([\s\S]*?)(?=(?:💡\s*)?Immediate Recommendation:|$)/i);
+  const recommendationMatch = cleaned.match(/(?:💡\s*)?Immediate Recommendation:\s*([\s\S]*?)(?=(?:🎯\s*)?Suggested Follow-Up Question:|$)/i);
+  const followUpMatch = cleaned.match(/(?:🎯\s*)?Suggested Follow-Up Question:\s*([\s\S]*)$/i);
+
+  if (breakdownMatch || recommendationMatch || followUpMatch) {
+    return {
+      submissionBreakdown: String(breakdownMatch?.[1] || '').trim() || 'Submission patterns are still emerging.',
+      immediateRecommendation: String(recommendationMatch?.[1] || '').trim() || 'Pause for a quick concept check and reteach one key point.',
+      suggestedFollowUpQuestion: String(followUpMatch?.[1] || '').trim() || 'Ask one short-answer check question to validate understanding.',
+    };
+  }
+
+  return {
+    submissionBreakdown: cleaned,
+    immediateRecommendation: 'In the next two minutes, restate the key concept and test one misconception aloud.',
+    suggestedFollowUpQuestion: 'Short-answer check: In one sentence, explain the main idea and give one example.',
+  };
+}
+
 function normalizeInsightPayload(data) {
   const fallbackGist = normalizeListState(data?.gist_list || data?.gistList || []);
   let gist = fallbackGist;
@@ -146,7 +203,7 @@ export default function LiveAnalytics({
   const [error, setError] = useState('');
   const [isRefreshingSummary, setIsRefreshingSummary] = useState(false);
   const [isResponsesPanelOpen, setIsResponsesPanelOpen] = useState(false);
-  const [isWordCloudModalOpen, setIsWordCloudModalOpen] = useState(false);
+  const [isWordCloudMaximized, setIsWordCloudMaximized] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   const [assistantPrompt, setAssistantPrompt] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
@@ -423,19 +480,19 @@ export default function LiveAnalytics({
   }, [sessionStatus, startedAt, durationMinutes]);
 
   useEffect(() => {
-    if (!isWordCloudModalOpen) {
+    if (!isWordCloudMaximized) {
       return undefined;
     }
 
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
-        setIsWordCloudModalOpen(false);
+        setIsWordCloudMaximized(false);
       }
     };
 
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [isWordCloudModalOpen]);
+  }, [isWordCloudMaximized]);
 
   const formatRemainingTime = (seconds) => {
     const safeSeconds = Math.max(0, Number(seconds || 0));
@@ -895,11 +952,11 @@ export default function LiveAnalytics({
                     <h3 className="text-lg font-semibold text-cyan-100">Word Cloud Output</h3>
                     <button
                       type="button"
-                      onClick={() => setIsWordCloudModalOpen(true)}
+                      onClick={() => setIsWordCloudMaximized(true)}
                       disabled={!generatedWordCloudImage}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/12 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="px-3 py-1.5 text-xs font-semibold text-cyan-400 bg-slate-900 border border-slate-800 rounded-lg hover:bg-slate-800 transition-all flex items-center space-x-1 disabled:cursor-not-allowed disabled:opacity-45"
                     >
-                      🔍 Maximize Word Cloud
+                      <span>Maximize Cloud</span>
                     </button>
                   </div>
                   {generatedWordCloudImage ? (
@@ -1028,7 +1085,25 @@ export default function LiveAnalytics({
                     </div>
                     <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-3 text-sm text-violet-100">
                       <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-violet-300">AI Response</p>
-                      <p className="whitespace-pre-wrap">{item.response_text}</p>
+                      {(() => {
+                        const formatted = parsePedagogicalSections(item.response_text);
+                        return (
+                          <div className="space-y-3 text-violet-100">
+                            <div>
+                              <p className="font-semibold text-violet-200">📊 Submission Breakdown:</p>
+                              <p className="whitespace-pre-wrap">{formatted.submissionBreakdown}</p>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-violet-200">💡 Immediate Recommendation:</p>
+                              <p className="whitespace-pre-wrap">{formatted.immediateRecommendation}</p>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-violet-200">🎯 Suggested Follow-Up Question:</p>
+                              <p className="whitespace-pre-wrap">{formatted.suggestedFollowUpQuestion}</p>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )) : (
@@ -1157,46 +1232,47 @@ export default function LiveAnalytics({
         </div>
       ) : null}
 
-      {isWordCloudModalOpen ? (
+      {isWordCloudMaximized && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setIsWordCloudModalOpen(false);
-            }
-          }}
+          onClick={() => setIsWordCloudMaximized(false)}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-md p-8 animate-fade-in cursor-zoom-out"
           role="dialog"
           aria-modal="true"
           aria-label="Expanded word cloud"
         >
-          <div className="relative w-full max-w-6xl rounded-3xl border border-slate-700 bg-slate-900 p-6 md:p-8 text-center shadow-2xl shadow-cyan-950/20 transition-all duration-300">
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-[90vmin] aspect-video bg-slate-900/40 border border-slate-800 p-8 rounded-2xl shadow-2xl flex items-center justify-center relative"
+          >
             <button
               type="button"
-              onClick={() => setIsWordCloudModalOpen(false)}
-              className="absolute right-4 top-4 h-10 w-10 rounded-full border border-slate-700 bg-slate-950 text-slate-300 transition-colors hover:text-rose-300 hover:border-rose-400/50"
-              aria-label="Close expanded word cloud"
+              onClick={() => setIsWordCloudMaximized(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-950 px-3 py-1 rounded-md text-sm border border-slate-800"
             >
-              X
+              Minimize
             </button>
 
-            <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">Live Word Cloud</p>
-            <h3 className="mt-2 text-xl font-semibold text-white">Expanded Class Keyword View</h3>
-
-            <div className="mt-6 overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/80 p-3 md:p-5">
+            <div className="w-full h-full flex items-center justify-center scale-110 transform transition-transform">
               {generatedWordCloudImage ? (
                 <img
                   src={generatedWordCloudImage}
-                  alt="Expanded Claude-generated word cloud"
-                  className="mx-auto h-auto max-h-[75vh] w-full object-contain"
+                  alt="Expanded live feedback cloud"
+                  className="h-full w-full object-contain"
                   loading="lazy"
                 />
               ) : (
-                <p className="py-12 text-sm text-slate-400">Generate a word cloud first to view it in expanded mode.</p>
+                <div className="flex h-full w-full items-center justify-center rounded-2xl border border-slate-800 bg-slate-950/70">
+                  <p className="text-sm text-slate-400">Generate a word cloud first to view it in expanded mode.</p>
+                </div>
               )}
             </div>
           </div>
+
+          <p className="mt-6 text-lg font-medium text-slate-400 tracking-wide bg-slate-900/80 px-6 py-2 rounded-full border border-slate-800/50">
+            Live Feedback Cloud • Click anywhere to return to panel
+          </p>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

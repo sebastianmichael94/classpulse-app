@@ -194,7 +194,6 @@ function AppRoutes() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
   const [activeTab, setActiveTab] = useState('welcome');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
     const fetchQuizHistory = async () => {
@@ -609,75 +608,40 @@ function AppRoutes() {
       <Route
         path="/instructor"
         element={isProfessor ? (
-          <div className="min-h-screen bg-slate-950 text-slate-100 md:flex">
-            <button
-              type="button"
-              onClick={() => setIsSidebarOpen((prev) => !prev)}
-              className="fixed left-4 top-4 z-50 inline-flex items-center justify-center rounded-xl border border-slate-700 bg-slate-900/90 p-2 text-slate-200 md:left-6 md:top-6"
-              aria-label="Toggle navigation menu"
-            >
-              <span className="text-lg leading-none">☰</span>
-            </button>
-
-            {isSidebarOpen ? (
-              <button
-                type="button"
-                className="fixed inset-0 z-30 bg-slate-950/70 md:hidden"
-                onClick={() => setIsSidebarOpen(false)}
-                aria-label="Close sidebar overlay"
-              />
-            ) : null}
-
-            <aside
-              className={`fixed left-0 top-0 z-40 w-64 min-h-screen bg-slate-900 border-r border-slate-800 p-4 flex flex-col space-y-2 text-slate-300 transform transition-transform duration-300 md:static md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-            >
-              <div className="mt-14 md:mt-2">
+          <div className="flex w-full min-h-screen bg-slate-950 text-slate-100 font-sans">
+            <aside className="w-64 min-h-screen bg-slate-900 border-r border-slate-800 p-6 flex flex-col space-y-2 flex-shrink-0">
+              <div>
                 <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-400">Instructor Workspace</p>
                 <h2 className="mt-2 text-xl font-semibold text-white">Dr. Reshma Panel</h2>
               </div>
 
               <button
                 type="button"
-                onClick={() => {
-                  setActiveTab('welcome');
-                  if (window.innerWidth < 768) {
-                    setIsSidebarOpen(false);
-                  }
-                }}
+                onClick={() => setActiveTab('welcome')}
                 className={`w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'welcome' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-950/70 text-slate-300 hover:text-white'}`}
               >
-                🏠 Welcome Home
+                Welcome Home
               </button>
 
               <button
                 type="button"
-                onClick={() => {
-                  setActiveTab('host');
-                  if (window.innerWidth < 768) {
-                    setIsSidebarOpen(false);
-                  }
-                }}
+                onClick={() => setActiveTab('host')}
                 className={`w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'host' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-950/70 text-slate-300 hover:text-white'}`}
               >
-                🚀 Host a New Quiz
+                Host a New Quiz
               </button>
 
               <button
                 type="button"
-                onClick={() => {
-                  setActiveTab('history');
-                  if (window.innerWidth < 768) {
-                    setIsSidebarOpen(false);
-                  }
-                }}
+                onClick={() => setActiveTab('history')}
                 className={`w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'history' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-950/70 text-slate-300 hover:text-white'}`}
               >
-                📊 Hosted Quizzes History
+                Hosted Quizzes History
               </button>
             </aside>
 
-            <main className="flex-1 p-8 bg-slate-950 overflow-y-auto md:ml-0">
-              <div className="mx-auto mt-12 md:mt-0 flex max-w-7xl flex-col gap-6">
+            <main className="flex-1 p-8 bg-slate-950 overflow-y-auto">
+              <div className="mx-auto flex max-w-7xl flex-col gap-6">
                 {activeTab === 'welcome' ? (
                   <section className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/50 p-8 shadow-2xl">
                     <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">Instructor Greeting</p>
