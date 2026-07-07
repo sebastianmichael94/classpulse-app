@@ -275,6 +275,49 @@ function AppRoutes() {
     recoverProfessorQuiz();
   }, [isProfessor, publishedQuizId, activeQuiz]);
 
+  useEffect(() => {
+    const recoverLatestProfessorQuizFromHistory = async () => {
+      if (!isProfessor || publishedQuizId || activeQuiz?.id) {
+        return;
+      }
+
+      try {
+        const historyResponse = await authFetch(`${API_BASE_URL}/api/professor/quizzes/history/`);
+        if (!historyResponse.ok) {
+          return;
+        }
+
+        const historyPayload = await historyResponse.json().catch(() => ({}));
+        const historyItems = Array.isArray(historyPayload?.history) ? historyPayload.history : [];
+        const candidate = historyItems.find((quiz) => {
+          const status = String(quiz?.status || '').toUpperCase();
+          return status === 'READY' || status === 'ACTIVE';
+        });
+
+        if (!candidate?.id) {
+          return;
+        }
+
+        const quizResponse = await authFetch(`${API_BASE_URL}/api/quizzes/${candidate.id}/`);
+        if (!quizResponse.ok) {
+          return;
+        }
+
+        const quizPayload = await quizResponse.json();
+        const normalizedQuiz = normalizeQuizPayload(quizPayload);
+        setActiveQuiz(normalizedQuiz);
+        setPublishedQuizId(String(normalizedQuiz.id));
+        writeStoredActiveQuizId(String(normalizedQuiz.id));
+        writeStoredActiveQuizPayload(normalizedQuiz);
+        setProfessorView('live');
+      } catch {
+        // Graceful no-op: history recovery is a best-effort safety net.
+      }
+    };
+
+    recoverLatestProfessorQuizFromHistory();
+  }, [isProfessor, publishedQuizId, activeQuiz?.id]);
+
   const handleQuizLoaded = ({ quiz, studentName: enteredName }) => {
     const normalizedQuiz = normalizeQuizPayload(quiz);
     setActiveQuiz(normalizedQuiz);

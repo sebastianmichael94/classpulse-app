@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
-from urllib.parse import urlparse
+import dj_database_url
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -84,29 +84,13 @@ WSGI_APPLICATION = "classpulse_config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-database_url = str(os.environ.get('DATABASE_URL') or '').strip()
-
-if database_url:
-    parsed_db = urlparse(database_url)
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': parsed_db.path.lstrip('/'),
-            'USER': parsed_db.username or '',
-            'PASSWORD': parsed_db.password or '',
-            'HOST': parsed_db.hostname or '',
-            'PORT': str(parsed_db.port or 5432),
-            'CONN_MAX_AGE': 600,
-            'OPTIONS': {'sslmode': 'require'},
-        }
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+DATABASES = {
+    'default': dj_database_url.config(
+        default=f"sqlite:///{os.path.join(str(BASE_DIR), 'db.sqlite3')}",
+        conn_max_age=600,
+        ssl_require=True,
+    )
+}
 
 
 # Password validation
