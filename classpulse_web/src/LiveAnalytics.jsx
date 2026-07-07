@@ -106,6 +106,17 @@ function parsePedagogicalSections(value) {
   };
 }
 
+function hasPedagogicalSections(value) {
+  const cleaned = stripTechnicalFragments(value);
+  if (!cleaned) {
+    return false;
+  }
+
+  return /Submission Breakdown:/i.test(cleaned)
+    && /Immediate Recommendation:/i.test(cleaned)
+    && /Suggested Follow-Up Question:/i.test(cleaned);
+}
+
 function normalizeInsightPayload(data) {
   const fallbackGist = normalizeListState(data?.gist_list || data?.gistList || []);
   let gist = fallbackGist;
@@ -742,7 +753,7 @@ export default function LiveAnalytics({
     setAssistantError('');
 
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/custom-analytics-prompt/`, {
+      const response = await authFetch(`${API_BASE_URL}/api/analytics/chat/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -754,11 +765,14 @@ export default function LiveAnalytics({
           active_question_id: activeQuestionId || undefined,
           prompt: trimmedPrompt,
           prompt_text: trimmedPrompt,
+          mode: 'chat',
+          is_summary: false,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Unable to generate AI response at the moment.');
+        const errorPayload = await response.json().catch(() => ({}));
+        throw new Error(errorPayload?.error || 'Unable to generate AI response at the moment.');
       }
 
       const payload = await response.json();
@@ -1030,25 +1044,27 @@ export default function LiveAnalytics({
                     </div>
                     <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-3 text-sm text-violet-100">
                       <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-violet-300">AI Response</p>
-                      {(() => {
+                      {hasPedagogicalSections(item.response_text) ? (() => {
                         const formatted = parsePedagogicalSections(item.response_text);
                         return (
                           <div className="space-y-3 text-violet-100">
                             <div>
-                              <p className="font-semibold text-violet-200">📊 Submission Breakdown:</p>
+                              <p className="font-semibold text-violet-200">Submission Breakdown:</p>
                               <p className="whitespace-pre-wrap">{formatted.submissionBreakdown}</p>
                             </div>
                             <div>
-                              <p className="font-semibold text-violet-200">💡 Immediate Recommendation:</p>
+                              <p className="font-semibold text-violet-200">Immediate Recommendation:</p>
                               <p className="whitespace-pre-wrap">{formatted.immediateRecommendation}</p>
                             </div>
                             <div>
-                              <p className="font-semibold text-violet-200">🎯 Suggested Follow-Up Question:</p>
+                              <p className="font-semibold text-violet-200">Suggested Follow-Up Question:</p>
                               <p className="whitespace-pre-wrap">{formatted.suggestedFollowUpQuestion}</p>
                             </div>
                           </div>
                         );
-                      })()}
+                      })() : (
+                        <p className="whitespace-pre-wrap text-violet-100">{stripTechnicalFragments(item.response_text)}</p>
+                      )}
                     </div>
                   </div>
                 )) : (

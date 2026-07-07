@@ -397,21 +397,24 @@ def format_word_cloud_data(word_counts, limit=30):
 def build_summary_insights(word_counts):
     ranked_terms = [(word, count) for word, count in sorted(word_counts.items(), key=lambda item: item[1], reverse=True)[:4]]
     top_terms = [word for word, _ in ranked_terms[:2]]
+    total_mentions = sum(max(0, int(count)) for _, count in ranked_terms)
 
     if not ranked_terms:
         return [
-            'Early signal: students are still building momentum on this question.',
-            'Collect a few more responses before drawing strong conclusions.',
-            'Recommendation: rephrase the prompt once and request one concrete example from students.',
+            'Student responses are too sparse to establish a stable understanding trend yet.',
+            'Current signals are fragmented, so no dominant misconception cluster is reliable yet.',
+            'Collect a few additional short responses to generate an evidence-based summary.',
         ]
 
     strongest_term, strongest_count = ranked_terms[0]
     secondary_terms = ', '.join(top_terms[1:]) if len(top_terms) > 1 else strongest_term
+    concentration = (strongest_count / total_mentions) if total_mentions else 0
+    concentration_note = 'highly concentrated around one idea' if concentration >= 0.55 else 'distributed across multiple ideas'
 
     return [
         f"Most frequent idea right now is '{strongest_term}' ({strongest_count} mentions).",
         f"Secondary pattern shows attention around {secondary_terms}.",
-        'Recommendation: validate one correct exemplar and address one common confusion before advancing.',
+        f"Overall language pattern is {concentration_note} (top-term share: {int(round(concentration * 100))}%).",
     ]
 
 
@@ -1083,27 +1086,27 @@ def generate_claude_chat_response(user_prompt, essay_answers, active_question_te
 
     anthropic_client = get_anthropic_client()
     if anthropic_client is None:
-        print('Claude API Pipeline Error: Missing ANTHROPIC_API_KEY in backend process environment.')
-        return build_local_chat_response(direct_prompt, essay_answers, active_question_text)
+        raise RuntimeError('Claude API key is not configured on the server environment.')
 
-    try:
-        message = anthropic_client.messages.create(
-            model=get_anthropic_model(),
-            max_tokens=700,
-            system=CLAUDE_CONVERSATIONAL_SYSTEM_PROMPT,
-            messages=[
-                {"role": "user", "content": direct_prompt},
-                {"role": "user", "content": context_block},
-            ]
-        )
-        response_text = extract_message_text(message)
-        if not str(response_text).strip():
-            raise ValueError('Claude returned an empty response.')
+    message = anthropic_client.messages.create(
+        model=get_anthropic_model(),
+        max_tokens=900,
+        system=CLAUDE_CONVERSATIONAL_SYSTEM_PROMPT,
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Professor Query:\n{direct_prompt}\n\n"
+                    f"ClassPulse Context:\n{context_block}"
+                ),
+            }
+        ]
+    )
+    response_text = extract_message_text(message)
+    if not str(response_text).strip():
+        raise ValueError('Claude returned an empty response.')
 
-        return strip_developer_artifacts(response_text)
-    except Exception as e:
-        print(f"Claude API Pipeline Error: {str(e)}")
-        return build_local_chat_response(direct_prompt, essay_answers, active_question_text)
+    return strip_developer_artifacts(response_text)
 
 
 class RegisterView(APIView):
@@ -1363,11 +1366,18 @@ class CustomAnalyticsPromptView(APIView):
                 active_question_text=selected_question_text,
             )
         else:
-            generated_text = generate_claude_chat_response(
-                user_prompt,
-                essay_answers,
-                active_question_text=selected_question_text,
-            )
+            try:
+                generated_text = generate_claude_chat_response(
+                    user_prompt,
+                    essay_answers,
+                    active_question_text=selected_question_text,
+                )
+            except Exception as exc:
+                print(f"Claude Chat Pipeline Error: {str(exc)}")
+                return Response(
+                    {'error': f"Claude chat is unavailable right now: {str(exc)}"},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
 
         prompt_record = CustomAnalyticsPrompt.objects.create(
             quiz=quiz,
