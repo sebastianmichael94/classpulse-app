@@ -40,7 +40,7 @@ export default function ProfessorHistoryVault() {
         if (!response.ok) {
           if (response.status === 401 || response.status === 403) {
             setHistoryRows([]);
-            setError('');
+            setError('Session expired. Please sign in again to load assessment history.');
             return;
           }
 
@@ -58,7 +58,7 @@ export default function ProfessorHistoryVault() {
         const statusCode = Number(fetchError?.status || fetchError?.response?.status || 0);
         if (statusCode === 401 || statusCode === 403) {
           setHistoryRows([]);
-          setError('');
+          setError('Session expired. Please sign in again to load assessment history.');
           return;
         }
 

@@ -331,7 +331,7 @@ function AppRoutes() {
       return;
     }
 
-    if (normalizedStatus === 'READY' || normalizedStatus === 'COMPLETED' || normalizedStatus === 'STOPPED') {
+    if (normalizedStatus === 'COMPLETED' || normalizedStatus === 'STOPPED') {
       if (String(readStoredActiveQuizId() || '') === normalizedQuizId) {
         clearStoredActiveQuizId();
         clearStoredActiveQuizPayload();
