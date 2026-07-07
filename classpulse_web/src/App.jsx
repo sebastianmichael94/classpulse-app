@@ -145,7 +145,7 @@ function ExamRoute({ activeQuiz, studentName, onSubmitSuccess, isSessionHydratin
   const { quizId } = useParams();
 
   if (isSessionHydrating) {
-    return <div className="min-h-screen bg-slate-950 text-slate-300 flex items-center justify-center">Restoring active exam session...</div>;
+    return <div className="min-h-screen bg-slate-50 text-slate-600 flex items-center justify-center dark:bg-slate-950 dark:text-slate-300">Restoring active exam session...</div>;
   }
 
   if (!activeQuiz || String(activeQuiz?.id) !== String(quizId)) {
@@ -608,17 +608,17 @@ function AppRoutes() {
       <Route
         path="/instructor"
         element={isProfessor ? (
-          <div className="flex w-full min-h-screen bg-slate-950 text-slate-100 font-sans">
-            <aside className="w-64 min-h-screen bg-slate-900 border-r border-slate-800 p-6 flex flex-col space-y-2 flex-shrink-0">
+          <div className="flex w-full min-h-screen bg-slate-50 text-slate-900 font-sans dark:bg-slate-950 dark:text-slate-100">
+            <aside className="w-64 min-h-screen bg-white border-r border-slate-200 p-6 flex flex-col space-y-2 flex-shrink-0 dark:bg-slate-900 dark:border-slate-800">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-400">Instructor Workspace</p>
-                <h2 className="mt-2 text-xl font-semibold text-white">Dr. Reshma Panel</h2>
+                <h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">Dr. Reshma Panel</h2>
               </div>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('welcome')}
-                className={`w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'welcome' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-950/70 text-slate-300 hover:text-white'}`}
+                className={`w-full rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'welcome' ? 'border-cyan-400/30 bg-cyan-500 text-slate-950' : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-900'}`}
               >
                 Welcome Home
               </button>
@@ -626,7 +626,7 @@ function AppRoutes() {
               <button
                 type="button"
                 onClick={() => setActiveTab('host')}
-                className={`w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'host' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-950/70 text-slate-300 hover:text-white'}`}
+                className={`w-full rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'host' ? 'border-cyan-400/30 bg-cyan-500 text-slate-950' : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-900'}`}
               >
                 Host a New Quiz
               </button>
@@ -634,19 +634,19 @@ function AppRoutes() {
               <button
                 type="button"
                 onClick={() => setActiveTab('history')}
-                className={`w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'history' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-950/70 text-slate-300 hover:text-white'}`}
+                className={`w-full rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'history' ? 'border-cyan-400/30 bg-cyan-500 text-slate-950' : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-900'}`}
               >
                 Hosted Quizzes History
               </button>
             </aside>
 
-            <main className="flex-1 p-8 bg-slate-950 overflow-y-auto">
+            <main className="flex-1 p-8 bg-slate-50 overflow-y-auto dark:bg-slate-950">
               <div className="mx-auto flex max-w-7xl flex-col gap-6">
                 {activeTab === 'welcome' ? (
-                  <section className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/50 p-8 shadow-2xl">
+                  <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-xl dark:border-slate-800 dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-cyan-950/50 dark:shadow-2xl">
                     <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">Instructor Greeting</p>
-                    <h1 className="mt-3 text-3xl font-semibold text-white md:text-4xl">Welcome back, Dr. Reshma Menon</h1>
-                    <p className="mt-3 max-w-2xl text-sm text-slate-300">Start a fresh classroom session or jump into historical analytics with one click.</p>
+                    <h1 className="mt-3 text-3xl font-semibold text-slate-900 md:text-4xl dark:text-white">Welcome back, Dr. Reshma Menon</h1>
+                    <p className="mt-3 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Start a fresh classroom session or jump into historical analytics with one click.</p>
 
                     <div className="mt-8 grid gap-4 md:grid-cols-2">
                       <button
@@ -674,10 +674,10 @@ function AppRoutes() {
 
                 {activeTab === 'host' ? (
                   <>
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900/80 dark:shadow-2xl">
                       <p className="text-xs font-mono uppercase tracking-[0.3em] text-cyan-400">Live Class Controller</p>
-                      <h1 className="mt-2 text-3xl font-semibold text-white">Professor Control Center</h1>
-                      <p className="mt-2 max-w-2xl text-sm text-slate-400">Use the Quiz Publishing Panel to finalize questions and monitor live classroom analytics as submissions arrive.</p>
+                      <h1 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Professor Control Center</h1>
+                      <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400">Use the Quiz Publishing Panel to finalize questions and monitor live classroom analytics as submissions arrive.</p>
                     </div>
                     <QuizHeaderForm onSaveHeader={handleHeaderSave} />
                     <QuizCreator
@@ -739,7 +739,7 @@ function AppRoutes() {
         path="/scorecard"
         element={(
           submissionResult ? (
-            <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100 flex items-center justify-center">
+            <div className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 flex items-center justify-center dark:bg-slate-950 dark:text-slate-100">
               <StudentScorecard
                 score={submissionResult.score}
                 totalPoints={submissionResult.total_possible}
@@ -759,9 +759,31 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'));
+
   return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+    <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
+      <button
+        onClick={toggleTheme}
+        className="fixed top-4 right-4 z-50 px-3 py-1.5 rounded-full border text-xs font-semibold backdrop-blur-md transition-all duration-200 dark:bg-slate-900/80 dark:text-slate-200 dark:border-slate-800 dark:hover:bg-slate-800 bg-white/90 text-slate-800 border-slate-200 hover:bg-slate-100 shadow-sm"
+      >
+        {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+      </button>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </div>
   );
 }

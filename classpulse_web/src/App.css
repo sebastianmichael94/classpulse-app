@@ -4,6 +4,14 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
 /* Explicit Global Resets to clear layout clashes */
 *, ::before, ::after {
   box-sizing: border-box;
@@ -14,24 +22,71 @@
 
 body {
   margin: 0;
-  background-color: #020617 !important; /* Forces solid slate-950 */
-  color: #f8fafc !important;
+  background-color: #f8fafc;
+  color: #0f172a;
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
   letter-spacing: -0.01em;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+html.dark body {
+  background-color: #020617;
+  color: #f8fafc;
 }
 
 /* Ensure form controls capture our custom Tailwind structures instead of raw HTML defaults */
 input, select, textarea {
-  background-color: #020617 !important;
-  border: 1px solid #1e293b !important;
-  color: #f8fafc !important;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
   border-radius: 0.75rem !important; /* Smooth rounded corners */
   padding: 0.75rem 1rem !important;
+  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #020617;
+  border-color: #1e293b;
+  color: #f8fafc;
 }
 
 input:focus, select:focus, textarea:focus {
   outline: 2px solid #4f46e5 !important; /* Crisp indigo focus indicator */
   border-color: transparent !important;
+}
+
+html:not(.dark) [class*="bg-slate-950"] {
+  background-color: #f8fafc !important;
+}
+
+html:not(.dark) [class*="bg-slate-900"] {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) [class*="bg-slate-800"] {
+  background-color: #e2e8f0 !important;
+}
+
+html:not(.dark) [class*="text-slate-100"],
+html:not(.dark) [class*="text-white"] {
+  color: #0f172a !important;
+}
+
+html:not(.dark) [class*="text-slate-300"] {
+  color: #334155 !important;
+}
+
+html:not(.dark) [class*="text-slate-400"],
+html:not(.dark) [class*="text-slate-500"] {
+  color: #475569 !important;
+}
+
+html:not(.dark) [class*="border-slate-800"],
+html:not(.dark) [class*="border-slate-700"],
+html:not(.dark) [class*="border-slate-600"] {
+  border-color: #cbd5e1 !important;
 }
 
 button {
