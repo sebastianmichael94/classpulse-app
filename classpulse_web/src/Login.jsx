@@ -53,7 +53,12 @@ export default function Login() {
         savedAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + (24 * 60 * 60 * 1000)).toISOString(),
       };
+
+      // Persist auth data synchronously before route transition to avoid first-render guard races.
       persistAuthSession(sessionPayload);
+      localStorage.setItem('token', String(payload.token || ''));
+      localStorage.setItem('user', JSON.stringify(payload.user || {}));
+      window.dispatchEvent(new Event('classpulse-auth-updated'));
 
       if (payload?.user?.role === 'professor') {
         navigate('/instructor', { replace: true });

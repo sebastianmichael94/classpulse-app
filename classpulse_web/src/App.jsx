@@ -170,8 +170,19 @@ function AppRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
   const [authState, setAuthState] = useState(() => getInitialAuthState());
-  const userRole = authState.user?.role;
-  const isProfessor = userRole === 'professor';
+  const liveToken = String(localStorage.getItem('token') || '').trim();
+  let liveUser = null;
+  try {
+    liveUser = JSON.parse(localStorage.getItem('user') || 'null');
+  } catch {
+    liveUser = null;
+  }
+
+  const liveSession = readAuthSession();
+  const effectiveUser = liveSession?.user || liveUser || authState.user;
+  const effectiveToken = liveSession?.token || liveToken || authState.session?.token;
+  const userRole = effectiveUser?.role;
+  const isProfessor = userRole === 'professor' && Boolean(effectiveToken);
   const [activeQuiz, setActiveQuiz] = useState(() => readStoredActiveQuizPayload());
   const [studentName, setStudentName] = useState('');
   const [submissionResult, setSubmissionResult] = useState(null);
@@ -225,8 +236,10 @@ function AppRoutes() {
     };
 
     window.addEventListener('storage', handleStorageSync);
+    window.addEventListener('classpulse-auth-updated', handleStorageSync);
     return () => {
       window.removeEventListener('storage', handleStorageSync);
+      window.removeEventListener('classpulse-auth-updated', handleStorageSync);
     };
   }, []);
 
