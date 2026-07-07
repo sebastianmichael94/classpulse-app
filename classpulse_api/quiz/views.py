@@ -81,7 +81,11 @@ def resolve_setting_value(key_name, default_value=''):
 
 
 def get_anthropic_client():
-    api_key = resolve_setting_value('ANTHROPIC_API_KEY')
+    api_key = (
+        resolve_setting_value('ANTHROPIC_API_KEY')
+        or resolve_setting_value('CLAUDE_API_KEY')
+        or resolve_setting_value('ANTHROPIC_KEY')
+    )
     if not api_key:
         return None
     return Anthropic(api_key=api_key)
@@ -364,15 +368,69 @@ def build_word_counts_from_texts(texts):
 
 
 def build_summary_insights(word_counts):
-    top_terms = [word for word, _ in sorted(word_counts.items(), key=lambda item: item[1], reverse=True)[:2]]
-    if not top_terms:
-        top_terms = ['core concepts', 'lesson outcomes']
+    ranked_terms = [(word, count) for word, count in sorted(word_counts.items(), key=lambda item: item[1], reverse=True)[:4]]
+    top_terms = [word for word, _ in ranked_terms[:2]]
+
+    if not ranked_terms:
+        return [
+            'Early signal: students are still building momentum on this question.',
+            'Collect a few more responses before drawing strong conclusions.',
+            'Recommendation: rephrase the prompt once and request one concrete example from students.',
+        ]
+
+    strongest_term, strongest_count = ranked_terms[0]
+    secondary_terms = ', '.join(top_terms[1:]) if len(top_terms) > 1 else strongest_term
 
     return [
-        f"The class is showing growing understanding of {', '.join(top_terms)}.",
-        'A smaller group may still benefit from an additional walkthrough of the central ideas.',
-        'Recommendation: briefly revisit the most missed concept before moving to the next section.',
+        f"Most frequent idea right now is '{strongest_term}' ({strongest_count} mentions).",
+        f"Secondary pattern shows attention around {secondary_terms}.",
+        'Recommendation: validate one correct exemplar and address one common confusion before advancing.',
     ]
+
+
+POSITIVE_MOOD_TERMS = {'happy', 'confident', 'clear', 'excited', 'good', 'great', 'understand', 'understood', 'ready'}
+NEGATIVE_MOOD_TERMS = {'sad', 'tired', 'stressed', 'confused', 'lost', 'anxious', 'overwhelmed', 'unclear', 'frustrated'}
+
+
+def build_local_prompt_response(prompt_text, answers):
+    normalized_prompt = str(prompt_text or '').strip() or 'the submitted responses'
+    fragments = [str(item).strip() for item in (answers or []) if str(item).strip()]
+    total = len(fragments)
+
+    word_counts = build_word_counts_from_texts(fragments)
+    ranked_terms = [word for word, _ in sorted(word_counts.items(), key=lambda item: item[1], reverse=True)[:3]]
+    term_text = ', '.join(ranked_terms) if ranked_terms else 'limited recurring terminology'
+
+    positive_hits = 0
+    negative_hits = 0
+    for fragment in fragments:
+        words = {word.strip().lower() for word in re.findall(r"[A-Za-z0-9]+", fragment)}
+        positive_hits += len(words.intersection(POSITIVE_MOOD_TERMS))
+        negative_hits += len(words.intersection(NEGATIVE_MOOD_TERMS))
+
+    prompt_lower = normalized_prompt.lower()
+    asks_for_mood = any(token in prompt_lower for token in ['mood', 'sentiment', 'feeling', 'emotion'])
+
+    if asks_for_mood:
+        if positive_hits > negative_hits:
+            mood_line = 'Overall class mood appears mostly positive and engaged.'
+        elif negative_hits > positive_hits:
+            mood_line = 'Overall class mood appears mixed with noticeable fatigue or confusion signals.'
+        else:
+            mood_line = 'Overall class mood appears mixed to neutral at this point.'
+
+        return (
+            f"{mood_line} "
+            f"Local insight mode analyzed {total} response fragments for '{normalized_prompt}'. "
+            f"Most visible themes: {term_text}. "
+            'Recommendation: do a quick pulse check and clarify one sticking point before continuing.'
+        )
+
+    return (
+        f"Local insight mode analyzed {total} response fragments for '{normalized_prompt}'. "
+        f"Most recurring terms: {term_text}. "
+        'Recommendation: reinforce one strong answer pattern and briefly address one misconception in the next minute.'
+    )
 
 
 def build_word_cloud_image_data_uri(word_counts, question_seed=''):
@@ -744,19 +802,7 @@ def generate_claude_dashboard_insights(essay_answers, force_model=False):
 
 def generate_claude_chat_response(user_prompt, essay_answers):
     def build_prompt_fallback_response(prompt_text, answers, reason=''):
-        total = len(answers)
-        word_counts = build_word_counts_from_texts(answers)
-        top_terms = [word for word, _ in sorted(word_counts.items(), key=lambda item: item[1], reverse=True)[:3]]
-        term_text = ', '.join(top_terms) if top_terms else 'insufficient textual signal'
-        reason_suffix = f" Reason: {reason}." if str(reason).strip() else ''
-
-        return (
-            f"I could not reach Claude right now, so this is a local fallback summary for your prompt: '{prompt_text}'."
-            f"{reason_suffix} "
-            f"I analyzed {total} submitted response fragments. "
-            f"Top recurring terms: {term_text}. "
-            "If you want richer prompt-specific analysis, refresh after confirming the backend process has ANTHROPIC_API_KEY."
-        )
+        return build_local_prompt_response(prompt_text, answers)
 
     prompt_lower = str(user_prompt or '').lower()
     newest_intent = any(term in prompt_lower for term in ['newest', 'latest', 'most recent', 'recent submission'])

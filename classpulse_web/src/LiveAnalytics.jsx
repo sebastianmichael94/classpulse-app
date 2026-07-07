@@ -692,7 +692,7 @@ export default function LiveAnalytics({
     : null;
   const activeSummaryPoints = toSummaryArray(
     activeQuestionSummary?.gistList || [],
-    'No generated summary yet.'
+    'Generate Quick Summary to see an instructor-ready snapshot for this question.'
   );
 
   const choiceMetrics = useMemo(() => {
@@ -839,7 +839,7 @@ export default function LiveAnalytics({
                 Status: {String(sessionStatus || 'READY')}
               </span>
               <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${aiSource === 'claude' ? 'border-cyan-400/60 bg-cyan-500/15 text-cyan-200' : 'border-slate-600 bg-slate-800/80 text-slate-300'}`}>
-                AI Source: {aiSource === 'claude' ? 'Claude' : 'Fallback'}
+                AI Source: {aiSource === 'claude' ? 'Claude' : 'Local Insight'}
               </span>
             </div>
           </div>
