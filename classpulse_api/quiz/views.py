@@ -549,7 +549,8 @@ def build_word_cloud_image_data_uri(word_counts, question_seed=''):
 
     max_count = max(count for _, count in ranked_terms)
     min_count = min(count for _, count in ranked_terms)
-    spread = max(1, max_count - min_count)
+    has_count_variance = max_count > min_count
+    spread = max_count - min_count
 
     boxes = []
     words_svg = []
@@ -586,8 +587,12 @@ def build_word_cloud_image_data_uri(word_counts, question_seed=''):
 
     # Place the highest-weight term exactly at the center first.
     center_word, center_count = ranked_terms[0]
-    center_ratio = 1.0 if spread == 0 else (center_count - min_count) / spread
-    center_font_size = int(round(108 + center_ratio * 28))
+    if has_count_variance:
+        center_ratio = (center_count - min_count) / spread
+        center_font_size = int(round(108 + center_ratio * 28))
+    else:
+        # Uniform frequencies (e.g., all words count=1) should render at equal visual weight.
+        center_font_size = 42
     center_box = estimate_text_box(center_x, center_y + int(center_font_size * 0.18), center_font_size, center_word)
     boxes.append(center_box)
     words_svg.append(
@@ -597,8 +602,12 @@ def build_word_cloud_image_data_uri(word_counts, question_seed=''):
     )
 
     for index, (word, count) in enumerate(ranked_terms[1:], start=1):
-        ratio = (count - min_count) / spread
-        font_size = int(round(26 + ratio * 70))
+        if has_count_variance:
+            ratio = (count - min_count) / spread
+            font_size = int(round(26 + ratio * 70))
+        else:
+            ratio = 0.5
+            font_size = 42
 
         hash_source = f"{question_seed}-{word}-{count}-{index}"
         hash_value = sum(ord(ch) for ch in hash_source)
@@ -890,7 +899,29 @@ def generate_claude_dashboard_insights(essay_answers, force_model=False):
         }
 
 
-def generate_claude_chat_response(user_prompt, essay_answers):
+CLAUDE_PEDAGOGICAL_SYSTEM_PROMPT = """
+You are an expert pedagogical assistant and data analyst for a real-time lecture platform named ClassPulse.
+Your job is to look at a classroom question, a set of real-time student responses, and an instructor's explicit question about those responses, and provide highly accurate, contextual, and professional advice.
+
+CRITICAL INSTRUCTIONS:
+1. ADAPT TO THE DATA TYPE: Inspect the question title and the student answers. If the question is an emotional check-in, feedback loop, or open-ended sentiment check (e.g., terms like "mood", "feeling", "how are you"), do NOT treat responses as right or wrong. Analyze the emotional distribution (e.g., 75% positive/exuberant/joyful, 25% sad) and summarize the collective energy of the room.
+2. IF IT IS AN ACADEMIC QUIZ: Only then evaluate conceptual alignment, identifying genuine misconceptions or surface-level knowledge gaps.
+3. NEVER treat literal strings or individual adjectives as technical concepts unless they explicitly match an engineering or factual domain.
+4. DO NOT reference developer jargon or placeholder modes. Speak directly to the professor as an elite teaching assistant.
+
+Strictly format your response into these exact Markdown headers:
+📊 Submission Breakdown:
+[Provide a clear, context-aware executive summary of what the student data actually represents]
+
+💡 Immediate Recommendation:
+[Provide a highly tactical, 1-2 sentence recommendation for the next minute of class based on the data]
+
+🎯 Suggested Follow-Up Question:
+[Provide a contextually relevant question for the professor to ask next]
+"""
+
+
+def generate_claude_chat_response(user_prompt, essay_answers, active_question_text=''):
     def build_prompt_fallback_response(prompt_text, answers, reason=''):
         return build_local_prompt_response(prompt_text, answers)
 
@@ -898,15 +929,20 @@ def generate_claude_chat_response(user_prompt, essay_answers):
     newest_intent = any(term in prompt_lower for term in ['newest', 'latest', 'most recent', 'recent submission'])
     context_window = 8 if newest_intent else 80
     context_items = essay_answers[:context_window]
-    context_blob = '\n'.join(context_items) if context_items else 'No essay responses available yet.'
-    context_blob = context_blob[:12000]
+    normalized_question_text = str(active_question_text or '').strip() or 'No active question text provided.'
+    normalized_student_responses = context_items if context_items else ['No student text responses available yet.']
+
+    claude_payload = [
+        {
+            'active_question_text': normalized_question_text,
+            'student_text_responses': normalized_student_responses,
+            'professor_query': str(user_prompt or '').strip(),
+        }
+    ]
 
     prompt_content = (
-        f"Professor question: {user_prompt}\n"
-        f"Student essay context: {context_blob}\n"
-        "Return ONLY a valid JSON object with exactly these keys: "
-        "submission_breakdown (string), immediate_recommendation (string, 1-2 sentences), "
-        "suggested_follow_up_question (string, should be either one short-answer prompt or one multiple-choice prompt with options)."
+        "Use the following classroom analysis payload and answer the professor with the required markdown headers.\n"
+        f"Payload: {json.dumps(claude_payload, ensure_ascii=False)}"
     )
 
     anthropic_client = get_anthropic_client()
@@ -922,6 +958,7 @@ def generate_claude_chat_response(user_prompt, essay_answers):
         message = anthropic_client.messages.create(
             model=get_anthropic_model(),
             max_tokens=700,
+            system=CLAUDE_PEDAGOGICAL_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt_content}]
         )
         response_text = extract_message_text(message)
@@ -1171,7 +1208,19 @@ class CustomAnalyticsPromptView(APIView):
             quiz.access_code,
             question_id=question_id or None,
         )
-        generated_text = generate_claude_chat_response(user_prompt, essay_answers)
+        selected_question_text = ''
+        if selected_question:
+            selected_question_text = (
+                f"Title: {str(selected_question.question_title or '').strip()}\n"
+                f"Prompt: {str(selected_question.question_text or '').strip()}\n"
+                f"Type: {str(selected_question.question_type or '').strip()}"
+            ).strip()
+
+        generated_text = generate_claude_chat_response(
+            user_prompt,
+            essay_answers,
+            active_question_text=selected_question_text,
+        )
 
         prompt_record = CustomAnalyticsPrompt.objects.create(
             quiz=quiz,
