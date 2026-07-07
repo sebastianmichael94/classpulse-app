@@ -88,7 +88,13 @@ def get_anthropic_client():
     )
     if not api_key:
         return None
-    return Anthropic(api_key=api_key)
+
+    try:
+        # Keep initialization on the supported Anthropic constructor signature only.
+        return Anthropic(api_key=api_key)
+    except Exception as exc:
+        print(f"Claude API Pipeline Error: Anthropic client initialization failed: {str(exc)}")
+        return None
 
 
 def get_anthropic_model():
