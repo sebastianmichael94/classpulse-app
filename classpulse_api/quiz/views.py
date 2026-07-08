@@ -163,15 +163,14 @@ QUESTION_TYPE_ALIAS_MAP = {
     'matching_question': 'Matching',
     'fill_in_the_blank_question': 'Fill In the Blank',
     'one_word_question': 'Fill In the Blank',
-    'short_answer_question': 'Short Answer',
-    'short_answer': 'Short Answer',
-    'essay_question': 'Essay Question',
+    'essay_question': 'Essay',
+    'Essay Question': 'Essay',
 }
 
 
 def normalize_question_type(question_type):
     if not question_type:
-        return 'Essay Question'
+        return 'Essay'
     normalized = str(question_type).strip()
     return QUESTION_TYPE_ALIAS_MAP.get(normalized, normalized)
 
@@ -189,25 +188,21 @@ def index_to_choice_label(index_value):
 
 
 TEXT_BASED_TYPES = {
-    'Essay Question',
-    'Short Answer',
+    'Essay',
     'Fill In the Blank',
 }
 
 SHORT_TEXT_TYPES = {
-    'Essay Question',
-    'Short Answer',
+    'Essay',
     'Fill In the Blank',
 }
 
 ESSAY_ANALYTICS_TYPES = {
-    'Essay Question',
-    'Short Answer',
+    'Essay',
 }
 
 TEXT_ANALYTICS_TYPES = {
-    'Essay Question',
-    'Short Answer',
+    'Essay',
     'Fill In the Blank',
 }
 
@@ -763,7 +758,7 @@ def extract_essay_answers_for_pin(pin_param):
                 continue
 
             question_type = normalize_question_type(answer.get('question_type'))
-            if question_type != 'Essay Question':
+            if question_type != 'Essay':
                 continue
 
             answer_value = answer.get('answer')
@@ -796,7 +791,7 @@ def parse_analytics_action(raw_action):
 
 
 def extract_prompt_context_answers_for_pin(pin_param, question_id=None):
-    """Build prompt context from essay/short answers first, then broader text answers, then any textual fragments."""
+    """Build prompt context from essay answers first, then broader text answers, then any textual fragments."""
     submissions = Submission.objects.filter(quiz__access_code=pin_param).order_by('-submitted_at')
 
     preferred_answers = []
@@ -1578,7 +1573,7 @@ class LiveAnalyticsView(APIView):
                     question_type = normalize_question_type(answer.get('question_type'))
                     if question_type in {'Multiple Choice', 'True/False'}:
                         response_type_breakdown['multiple_choice'] += 1
-                    elif question_type in {'Essay Question', 'Short Answer', 'Fill In the Blank'}:
+                    elif question_type in {'Essay', 'Fill In the Blank'}:
                         response_type_breakdown['essay'] += 1
                     elif question_type == 'Matching':
                         response_type_breakdown['matching'] += 1
@@ -2356,7 +2351,7 @@ class QuizViewSet(viewsets.ModelViewSet):
                         if label:
                             choice_badge = label
 
-                if question_type in {'Essay Question', 'Short Answer', 'Fill In the Blank'}:
+                if question_type in {'Essay', 'Fill In the Blank'}:
                     if isinstance(answer_value, str) and answer_value.strip():
                         text_fragments.append(answer_value.strip())
                     elif isinstance(answer_value, dict):
@@ -2648,7 +2643,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         gradable_question_ids = [
             question_id
             for question_id, question in questions.items()
-            if normalize_question_type(question.question_type) in {'Multiple Choice', 'True/False', 'Matching', 'Essay Question', 'Short Answer', 'Fill In the Blank'}
+            if normalize_question_type(question.question_type) in {'Multiple Choice', 'True/False', 'Matching', 'Essay', 'Fill In the Blank'}
         ]
         score = 0
         total_possible = len(gradable_question_ids)
@@ -2713,7 +2708,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             elif question_type in ['Fill In the Blank']:
                 if answer_value is not None and str(answer_value).strip() != '':
                     score += 1
-            elif question_type in ['Essay Question', 'Short Answer']:
+            elif question_type in ['Essay']:
                 if answer_value is not None and str(answer_value).strip() != '':
                     score += 1
             elif question_type == 'Matching':
@@ -2728,9 +2723,6 @@ class SubmissionViewSet(viewsets.ModelViewSet):
 
                 left_ids = [str((item or {}).get('id') or '').strip() for item in left_items if str((item or {}).get('id') or '').strip()]
                 if left_ids and all(submitted_mapping.get(left_id) == correct_mapping.get(left_id) for left_id in left_ids):
-                    score += 1
-            elif question_type in ['essay_question', 'one_word_question', 'fill_in_the_blank_question']:
-                if answer_value is not None and str(answer_value).strip() != '':
                     score += 1
 
         submission.score = score

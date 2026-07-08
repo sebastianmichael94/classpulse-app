@@ -49,7 +49,7 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
   const currentQuestion = questions[currentIndex];
 
   const isTextBasedPeerType = (questionType) => (
-    ['Essay Question', 'Short Answer', 'Fill In the Blank', 'essay_question', 'fill_in_the_blank_question', 'one_word_question'].includes(questionType)
+    ['Essay', 'Essay Question', 'Fill In the Blank', 'essay_question', 'fill_in_the_blank_question', 'one_word_question'].includes(questionType)
   );
 
   const isPeerEnabledForCurrent = Boolean(currentQuestion?.allow_peer_upvoting) && isTextBasedPeerType(currentQuestion?.question_type);
@@ -364,8 +364,8 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
           </div>
         );
       }
+      case 'Essay':
       case 'Essay Question':
-      case 'Short Answer':
       case 'essay_question':
         return (
           <textarea

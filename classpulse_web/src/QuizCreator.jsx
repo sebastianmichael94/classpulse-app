@@ -6,8 +6,7 @@ const QUESTION_TYPES = [
   'True/False',
   'Matching',
   'Fill In the Blank',
-  'Short Answer',
-  'Essay Question',
+  'Essay',
 ];
 
 const defaultChoice = (index, text = '') => ({
@@ -99,7 +98,7 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
   const [editingQuestionIndex, setEditingQuestionIndex] = useState(null);
 
   const isOptionType = type === 'Multiple Choice';
-  const isPeerUpvotingType = ['Essay Question', 'Short Answer', 'Fill In the Blank'].includes(type);
+  const isPeerUpvotingType = ['Essay', 'Essay Question', 'Fill In the Blank'].includes(type);
 
   const handleTypeChange = (newType) => {
     setType(newType);
@@ -120,7 +119,7 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
       });
     }
 
-    if (!['Essay Question', 'Short Answer', 'Fill In the Blank'].includes(newType)) {
+    if (!['Essay', 'Essay Question', 'Fill In the Blank'].includes(newType)) {
       setAllowPeerUpvoting(false);
     }
   };
@@ -382,7 +381,8 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
   };
 
   const loadQuestionForEditing = (question, index) => {
-    const nextType = String(question?.question_type || 'Multiple Choice').trim();
+    const rawType = String(question?.question_type || 'Multiple Choice').trim();
+    const nextType = rawType === 'Essay Question' ? 'Essay' : rawType;
     const interaction = question?.interaction_data || {};
 
     setEditingQuestionIndex(index);

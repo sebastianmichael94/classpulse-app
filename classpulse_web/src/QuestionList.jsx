@@ -26,7 +26,7 @@ export default function QuestionList({ questions }) {
                 {index + 1}. {q.title || 'Untitled Question'}
               </h4>
               <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border ${
-                q.question_type === 'essay_question' || q.question_type === 'Essay Question' || q.question_type === 'Short Answer' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                q.question_type === 'essay_question' || q.question_type === 'Essay Question' || q.question_type === 'Essay' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                 'bg-indigo-50 text-indigo-700 border-indigo-200'
               }`}>
                 {q.question_type.replace('_', ' ')}
@@ -67,7 +67,7 @@ export default function QuestionList({ questions }) {
                 </div>
               )}
 
-              {q.question_type === 'essay_question' && (
+              {(q.question_type === 'essay_question' || q.question_type === 'Essay Question' || q.question_type === 'Essay') && (
                 <p className="text-slate-500 italic">Open-ended question. Students can write their own answers.</p>
               )}
             </div>

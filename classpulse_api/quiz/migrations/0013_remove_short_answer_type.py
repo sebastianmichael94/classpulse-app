@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('quiz', '0011_customanalyticsprompt_question'),
+        ('quiz', '0012_alter_question_question_type_matching'),
     ]
 
     operations = [
@@ -17,13 +17,7 @@ class Migration(migrations.Migration):
                     ('True/False', 'True/False'),
                     ('Fill In the Blank', 'Fill In the Blank'),
                     ('Matching', 'Matching'),
-                    ('Essay Question', 'Essay Question'),
-                    ('multiple_choice_question', 'Multiple Choice'),
-                    ('true_false_question', 'True/False'),
-                    ('matching_question', 'Matching'),
-                    ('essay_question', 'Essay'),
-                    ('one_word_question', 'One Word'),
-                    ('fill_in_the_blank_question', 'Fill in the Blank'),
+                    ('Essay', 'Essay'),
                 ],
                 max_length=30,
             ),

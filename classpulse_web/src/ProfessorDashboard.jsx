@@ -43,9 +43,9 @@ export default function ProfessorDashboard({ activeQuiz, draftQuestions = [], on
           </div>
         );
       }
+      case 'Essay':
       case 'Essay Question':
       case 'essay_question':
-      case 'Short Answer':
       case 'Fill In the Blank':
       case 'fill_in_the_blank_question':
       case 'one_word_question':

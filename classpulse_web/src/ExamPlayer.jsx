@@ -193,8 +193,8 @@ export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
           </div>
         );
       }
+      case 'Essay':
       case 'Essay Question':
-      case 'Short Answer':
         return (
           <textarea
             rows={8}
@@ -223,8 +223,8 @@ export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
         const matchingValue = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
         return (
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/65 p-4">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
+            <div className="min-w-0 rounded-2xl border border-slate-700 bg-slate-900/65 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">Left Items</p>
               <div className="mt-3 space-y-3">
                 {leftItems.map((leftItem) => (
@@ -262,7 +262,7 @@ export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/65 p-4">
+            <div className="min-w-0 rounded-2xl border border-slate-700 bg-slate-900/65 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-300">Right Options</p>
               <p className="mt-1 text-xs text-slate-400">Includes distractors.</p>
               <div className="mt-3 space-y-3">

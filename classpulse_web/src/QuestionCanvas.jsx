@@ -136,8 +136,9 @@ export default function QuestionCanvas({ quiz, studentName, onSubmit }) {
             ))}
           </div>
         );
+      case 'Essay':
+      case 'Essay Question':
       case 'essay_question':
-      case 'Short Answer':
         return (
           <textarea
             rows={8}

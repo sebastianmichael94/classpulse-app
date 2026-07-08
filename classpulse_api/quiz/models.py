@@ -72,14 +72,7 @@ class Question(models.Model):
         ('True/False', 'True/False'),
         ('Fill In the Blank', 'Fill In the Blank'),
         ('Matching', 'Matching'),
-        ('Short Answer', 'Short Answer'),
-        ('Essay Question', 'Essay Question'),
-        ('multiple_choice_question', 'Multiple Choice'),
-        ('true_false_question', 'True/False'),
-        ('matching_question', 'Matching'),
-        ('essay_question', 'Essay'),
-        ('one_word_question', 'One Word'),
-        ('fill_in_the_blank_question', 'Fill in the Blank'),
+        ('Essay', 'Essay'),
     ]
 
     quiz = models.ForeignKey(Quiz, related_name='questions', on_delete=models.CASCADE)
