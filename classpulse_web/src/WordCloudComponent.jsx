@@ -104,10 +104,13 @@ export default function WordCloudComponent({
 
     const radialStep = 16;
     const angleStep = Math.PI / 15;
+    const sizeScale = clamp(Math.sqrt((width * height) / (900 * 520)), 0.75, 1.9);
+    const minFontSize = Math.round(22 * sizeScale);
+    const maxFontSize = Math.round(72 * sizeScale);
 
     words.forEach((item, index) => {
-      const baseSize = computeFontSize(item.value, minCount, maxCount, 22, 72);
-      const fontSize = clamp(baseSize, 20, 80);
+      const baseSize = computeFontSize(item.value, minCount, maxCount, minFontSize, maxFontSize);
+      const fontSize = clamp(baseSize, 18, 110);
       const color = WORD_COLORS[hashWord(item.text) % WORD_COLORS.length];
 
       let chosenX = cx;
@@ -170,6 +173,7 @@ export default function WordCloudComponent({
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="xMidYMid meet"
       role="img"
       aria-label="Word cloud"
       className={`h-full w-full ${className}`.trim()}

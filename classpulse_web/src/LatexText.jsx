@@ -7,22 +7,22 @@ export default function LatexText({ text }) {
     return null;
   }
 
-  if (!text.includes('$$')) {
-    return <span>{text}</span>;
-  }
-
-  const parts = text.split('$$');
+  const parts = text.split(/(\$\$[\s\S]+?\$\$|\$[^$\n]+\$)/g).filter(Boolean);
 
   return (
     <span>
       {parts.map((part, index) => {
-        if (index % 2 === 1) {
+        const isBlockMath = part.startsWith('$$') && part.endsWith('$$');
+        const isInlineMath = part.startsWith('$') && part.endsWith('$') && !isBlockMath;
+
+        if (isBlockMath || isInlineMath) {
           try {
+            const mathExpression = isBlockMath ? part.slice(2, -2) : part.slice(1, -1);
             return (
               <span
                 key={index}
                 className="mx-1 inline-block align-middle"
-                dangerouslySetInnerHTML={{ __html: katex.renderToString(part, { throwOnError: false }) }}
+                dangerouslySetInnerHTML={{ __html: katex.renderToString(mathExpression, { throwOnError: false, displayMode: isBlockMath }) }}
               />
             );
           } catch {

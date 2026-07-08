@@ -3,27 +3,26 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { API_BASE_URL } from './apiClient';
 
-const BRACKET_TOKEN_REGEX = /\[([^\]]+)\]/g;
 const POLL_INTERVAL_MS = 4000;
 
 function MathText({ value }) {
   if (typeof value !== 'string') return null;
 
-  if (!value.includes('$$')) {
-    return <span>{value}</span>;
-  }
-
-  const parts = value.split('$$');
+  const parts = value.split(/(\$\$[\s\S]+?\$\$|\$[^$\n]+\$)/g).filter(Boolean);
   return (
     <span>
       {parts.map((part, index) => {
-        if (index % 2 === 1) {
+        const isBlockMath = part.startsWith('$$') && part.endsWith('$$');
+        const isInlineMath = part.startsWith('$') && part.endsWith('$') && !isBlockMath;
+
+        if (isBlockMath || isInlineMath) {
           try {
+            const mathExpression = isBlockMath ? part.slice(2, -2) : part.slice(1, -1);
             return (
               <span
                 key={index}
                 className="inline-block align-middle mx-1"
-                dangerouslySetInnerHTML={{ __html: katex.renderToString(part, { throwOnError: false }) }}
+                dangerouslySetInnerHTML={{ __html: katex.renderToString(mathExpression, { throwOnError: false, displayMode: isBlockMath }) }}
               />
             );
           } catch {
@@ -50,10 +49,81 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
   const currentQuestion = questions[currentIndex];
 
   const isTextBasedPeerType = (questionType) => (
-    ['Essay Question', 'Fill In the Blank', 'Fill In Multiple Blanks', 'essay_question', 'fill_in_the_blank_question', 'one_word_question'].includes(questionType)
+    ['Essay Question', 'Short Answer', 'Fill In the Blank', 'essay_question', 'fill_in_the_blank_question', 'one_word_question'].includes(questionType)
   );
 
   const isPeerEnabledForCurrent = Boolean(currentQuestion?.allow_peer_upvoting) && isTextBasedPeerType(currentQuestion?.question_type);
+
+  const normalizeChoiceOptions = (rawOptions, fallbackTrueFalse = false) => {
+    const options = Array.isArray(rawOptions) ? rawOptions : [];
+
+    if (!options.length && fallbackTrueFalse) {
+      return [
+        { id: 'A', text: 'True', image_url: null },
+        { id: 'B', text: 'False', image_url: null },
+      ];
+    }
+
+    return options.map((option, index) => {
+      if (option && typeof option === 'object' && !Array.isArray(option)) {
+        return {
+          id: String(option.id || String.fromCharCode(65 + index)).trim(),
+          text: String(option.text || '').trim(),
+          image_url: option.image_url ? String(option.image_url).trim() : null,
+        };
+      }
+
+      return {
+        id: String.fromCharCode(65 + index),
+        text: String(option || '').trim(),
+        image_url: null,
+      };
+    });
+  };
+
+  const isChoiceSelected = (selectedValue, choice) => {
+    const selectedText = String(selectedValue || '').trim();
+    if (!selectedText) {
+      return false;
+    }
+
+    return selectedText === String(choice.id || '').trim() || selectedText === String(choice.text || '').trim();
+  };
+
+  const normalizeMatchingItems = (rawItems, prefix = 'L') => {
+    const items = Array.isArray(rawItems) ? rawItems : [];
+    return items.map((item, index) => {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        return {
+          id: String(item.id || `${prefix}${index + 1}`).trim() || `${prefix}${index + 1}`,
+          text: String(item.text || '').trim(),
+          image_url: item.image_url ? String(item.image_url).trim() : null,
+        };
+      }
+
+      return {
+        id: `${prefix}${index + 1}`,
+        text: String(item || '').trim(),
+        image_url: null,
+      };
+    });
+  };
+
+  const updateMatchingAnswer = (questionId, leftId, rightId) => {
+    setAnswers((prev) => {
+      const existing = prev[questionId] && typeof prev[questionId] === 'object' && !Array.isArray(prev[questionId])
+        ? prev[questionId]
+        : {};
+
+      return {
+        ...prev,
+        [questionId]: {
+          ...existing,
+          [leftId]: rightId,
+        },
+      };
+    });
+  };
 
   const updateAnswer = (questionId, value) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
@@ -63,73 +133,6 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
     // Immediate local state mutation for instant visual selection feedback.
     setAnswers((prev) => ({ ...prev, [questionId]: optionValue }));
   };
-
-  const toggleMultipleAnswerOption = (questionId, option) => {
-    setAnswers((prev) => {
-      const currentValue = Array.isArray(prev[questionId]) ? prev[questionId] : [];
-      const exists = currentValue.includes(option);
-      return {
-        ...prev,
-        [questionId]: exists ? currentValue.filter((item) => item !== option) : [...currentValue, option],
-      };
-    });
-  };
-
-  const updateStructuredAnswer = (questionId, key, value) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [questionId]: {
-        ...(typeof prev[questionId] === 'object' && prev[questionId] !== null ? prev[questionId] : {}),
-        [key]: value,
-      },
-    }));
-  };
-
-  const extractBlankTokens = (text) => {
-    const tokens = [];
-    const seen = {};
-    const rawText = String(text || '');
-    let match = BRACKET_TOKEN_REGEX.exec(rawText);
-    while (match) {
-      const baseKey = String(match[1] || '').trim() || 'blank';
-      seen[baseKey] = (seen[baseKey] || 0) + 1;
-      const tokenKey = seen[baseKey] > 1 ? `${baseKey}_${seen[baseKey]}` : baseKey;
-      tokens.push(tokenKey);
-      match = BRACKET_TOKEN_REGEX.exec(rawText);
-    }
-    BRACKET_TOKEN_REGEX.lastIndex = 0;
-    return tokens;
-  };
-
-  const splitTemplateSegments = (text) => {
-    const segments = [];
-    const rawText = String(text || '');
-    let cursor = 0;
-    let match = BRACKET_TOKEN_REGEX.exec(rawText);
-    const seen = {};
-
-    while (match) {
-      if (match.index > cursor) {
-        segments.push({ type: 'text', value: rawText.slice(cursor, match.index) });
-      }
-
-      const baseKey = String(match[1] || '').trim() || 'blank';
-      seen[baseKey] = (seen[baseKey] || 0) + 1;
-      const tokenKey = seen[baseKey] > 1 ? `${baseKey}_${seen[baseKey]}` : baseKey;
-      segments.push({ type: 'blank', key: tokenKey });
-      cursor = match.index + match[0].length;
-      match = BRACKET_TOKEN_REGEX.exec(rawText);
-    }
-
-    if (cursor < rawText.length) {
-      segments.push({ type: 'text', value: rawText.slice(cursor) });
-    }
-
-    BRACKET_TOKEN_REGEX.lastIndex = 0;
-    return segments;
-  };
-
-  const shouldSkipPayload = (questionType) => ['Text (no question)'].includes(questionType);
 
   const resolvePeerResponseText = (answerValue) => {
     if (typeof answerValue === 'string') {
@@ -283,17 +286,8 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
 
   const handleSubmit = async () => {
     const payloadAnswers = questions
-      .filter((question) => !shouldSkipPayload(question.question_type))
       .map((question) => {
         const answerValue = answers[question.id];
-        if (question.question_type === 'Multiple Answers') {
-          return {
-            question_id: question.id,
-            question_type: question.question_type,
-            answer: Array.isArray(answerValue) ? answerValue : [],
-          };
-        }
-
         return {
           question_id: question.id,
           question_type: question.question_type,
@@ -317,64 +311,61 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
     const interactionData = currentQuestion.interaction_data || {};
     const questionType = currentQuestion.question_type;
 
-    if (questionType === 'Text (no question)') {
-      return null;
-    }
-
     switch (questionType) {
       case 'Multiple Choice':
       case 'multiple_choice_question':
       case 'True/False':
       case 'true_false_question': {
-        const radioOptions = questionType === 'True/False' || questionType === 'true_false_question'
-          ? ['True', 'False']
-          : interactionData.options || [];
+        const radioOptions = normalizeChoiceOptions(
+          interactionData.options,
+          questionType === 'True/False' || questionType === 'true_false_question',
+        );
         return (
           <div className="space-y-2">
-            {radioOptions.map((option, index) => (
+            {radioOptions.map((choice, index) => {
+              const selected = isChoiceSelected(value, choice);
+              const selectionValue = String(choice.id || '').trim() || String(choice.text || '').trim();
+              return (
               <div
                 key={index}
-                onClick={() => handleOptionSelect(currentQuestion.id, option)}
+                onClick={() => handleOptionSelect(currentQuestion.id, selectionValue)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    handleOptionSelect(currentQuestion.id, option);
+                    handleOptionSelect(currentQuestion.id, selectionValue);
                   }
                 }}
                 role="button"
                 tabIndex={0}
-                className={`w-full p-4 my-3 text-left rounded-xl border-2 transition-all duration-150 cursor-pointer select-none touch-manipulation flex items-center space-x-3 ${value === option ? 'border-cyan-500 bg-cyan-950/40 text-cyan-200 shadow-md shadow-cyan-950/20' : 'border-slate-800 bg-slate-900/60 hover:border-slate-700 text-slate-300'}`}
+                className={`w-full p-4 my-3 text-left rounded-xl border-2 transition-all duration-150 cursor-pointer select-none touch-manipulation ${selected ? 'border-cyan-500 bg-cyan-950/40 text-cyan-200 shadow-md shadow-cyan-950/20' : 'border-slate-800 bg-slate-900/60 hover:border-slate-700 text-slate-300'}`}
               >
-                <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${value === option ? 'border-cyan-400 bg-cyan-500' : 'border-slate-600'}`}>
-                  {value === option ? <div className="w-2 h-2 rounded-full bg-slate-950" /> : null}
+                <div className="flex items-start gap-3">
+                  <div className={`mt-1 w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${selected ? 'border-cyan-400 bg-cyan-500' : 'border-slate-600'}`}>
+                    {selected ? <div className="w-2 h-2 rounded-full bg-slate-950" /> : null}
+                  </div>
+                  <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-base md:text-lg font-medium leading-relaxed block w-full">
+                      <MathText value={choice.text || `Option ${index + 1}`} />
+                    </span>
+                    {choice.image_url ? (
+                      <div className="w-full sm:w-36 overflow-hidden rounded-lg border border-slate-700 bg-slate-900/60 p-2">
+                        <img
+                          src={choice.image_url}
+                          alt={`Choice ${choice.id || index + 1} diagram`}
+                          className="pointer-events-none select-none h-auto max-h-[120px] w-full object-contain"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-                <span className="text-base md:text-lg font-medium leading-relaxed block w-full">
-                  <MathText value={option} />
-                </span>
               </div>
-            ))}
-          </div>
-        );
-      }
-      case 'Multiple Answers': {
-        const selectedOptions = Array.isArray(value) ? value : [];
-        return (
-          <div className="space-y-3">
-            {(interactionData.options || []).map((option, index) => (
-              <label key={option} className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-200">
-                <input
-                  type="checkbox"
-                  checked={selectedOptions.includes(option)}
-                  onChange={() => toggleMultipleAnswerOption(currentQuestion.id, option)}
-                  className="h-4 w-4 rounded border-slate-500 bg-slate-950 text-cyan-500"
-                />
-                <span><MathText value={option || `Option ${index + 1}`} /></span>
-              </label>
-            ))}
+            );
+            })}
           </div>
         );
       }
       case 'Essay Question':
+      case 'Short Answer':
       case 'essay_question':
         return (
           <textarea
@@ -384,23 +375,6 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
             className="min-h-[220px] w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
             placeholder="Write your response here..."
           />
-        );
-      case 'Formula Question':
-      case 'formula_question':
-      case 'Numerical Answer':
-        return (
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4 text-sm text-slate-300">
-              <MathText value={currentQuestion.question_text} />
-            </div>
-            <input
-              type="number"
-              value={value}
-              onChange={(e) => updateAnswer(currentQuestion.id, e.target.value)}
-              className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
-              placeholder="Enter numeric response"
-            />
-          </div>
         );
       case 'Fill In the Blank':
       case 'one_word_question':
@@ -414,116 +388,75 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
             placeholder="Type your answer"
           />
         );
-      case 'Fill In Multiple Blanks': {
-        const structuredValue = typeof value === 'object' && value !== null ? value : {};
-        const segments = splitTemplateSegments(currentQuestion.question_text);
-        return (
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4 text-sm text-slate-200 leading-9">
-            <div className="flex flex-wrap items-center gap-2">
-              {segments.map((segment, index) => (
-                segment.type === 'text' ? (
-                  <span key={`text-${index}`}><MathText value={segment.value} /></span>
-                ) : (
-                  <input
-                    key={`blank-${segment.key}-${index}`}
-                    type="text"
-                    value={structuredValue[segment.key] || ''}
-                    onChange={(e) => updateStructuredAnswer(currentQuestion.id, segment.key, e.target.value)}
-                    className="min-w-[130px] rounded-lg border border-cyan-700/50 bg-slate-950 px-3 py-1.5 text-sm text-cyan-100 outline-none focus:border-cyan-400"
-                    placeholder={segment.key}
-                  />
-                )
-              ))}
-            </div>
-          </div>
-        );
-      }
-      case 'Multiple Dropdowns': {
-        const structuredValue = typeof value === 'object' && value !== null ? value : {};
-        const segments = splitTemplateSegments(currentQuestion.question_text);
-        const fallbackOptions = Array.isArray(interactionData.options) ? interactionData.options : [];
-        return (
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4 text-sm text-slate-200 leading-9">
-            <div className="flex flex-wrap items-center gap-2">
-              {segments.map((segment, index) => {
-                if (segment.type === 'text') {
-                  return <span key={`text-${index}`}><MathText value={segment.value} /></span>;
-                }
-
-                const tokenOptions = Array.isArray(interactionData.blank_options?.[segment.key])
-                  ? interactionData.blank_options[segment.key]
-                  : fallbackOptions;
-
-                return (
-                  <select
-                    key={`blank-${segment.key}-${index}`}
-                    value={structuredValue[segment.key] || ''}
-                    onChange={(e) => updateStructuredAnswer(currentQuestion.id, segment.key, e.target.value)}
-                    className="min-w-[150px] rounded-lg border border-cyan-700/50 bg-slate-950 px-3 py-1.5 text-sm text-cyan-100 outline-none focus:border-cyan-400"
-                  >
-                    <option value="">Select</option>
-                    {tokenOptions.map((option, optionIndex) => (
-                      <option key={`${segment.key}-${optionIndex}`} value={option}>{option}</option>
-                    ))}
-                  </select>
-                );
-              })}
-            </div>
-          </div>
-        );
-      }
-      case 'Matching': {
-        const structuredValue = typeof value === 'object' && value !== null ? value : {};
-        const premises = Array.isArray(interactionData.premises) ? interactionData.premises : extractBlankTokens(currentQuestion.question_text);
-        const targets = Array.isArray(interactionData.targets) ? interactionData.targets : [];
+      case 'Matching':
+      case 'matching_question': {
+        const leftItems = normalizeMatchingItems(interactionData.left_items, 'L');
+        const rightOptions = normalizeMatchingItems(interactionData.right_options, 'R');
+        const matchingValue = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
         return (
-          <div className="space-y-3">
-            {premises.map((premise, index) => (
-              <div key={`${premise}-${index}`} className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3 items-center rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3">
-                <span className="text-sm text-slate-200"><MathText value={premise} /></span>
-                <select
-                  value={structuredValue[premise] || ''}
-                  onChange={(e) => updateStructuredAnswer(currentQuestion.id, premise, e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400"
-                >
-                  <option value="">Select match</option>
-                  {targets.map((target, targetIndex) => (
-                    <option key={`${premise}-${targetIndex}`} value={target}>{target}</option>
-                  ))}
-                </select>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/65 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">Left Items</p>
+              <div className="mt-3 space-y-3">
+                {leftItems.map((leftItem) => (
+                  <div key={`left-${leftItem.id}`} className="rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{leftItem.id}</p>
+                    <div className="mt-1 text-sm text-slate-100">
+                      <MathText value={leftItem.text || leftItem.id} />
+                    </div>
+                    {leftItem.image_url ? (
+                      <div className="mt-2 overflow-hidden rounded-lg border border-slate-700 bg-slate-900/60 p-2">
+                        <img
+                          src={leftItem.image_url}
+                          alt={`${leftItem.id} reference`}
+                          className="pointer-events-none select-none h-auto max-h-[100px] w-full object-contain"
+                        />
+                      </div>
+                    ) : null}
+                    <div className="mt-3">
+                      <label className="mb-1 block text-[10px] uppercase tracking-[0.16em] text-slate-400">Match With</label>
+                      <select
+                        value={String(matchingValue[leftItem.id] || '')}
+                        onChange={(event) => updateMatchingAnswer(currentQuestion.id, leftItem.id, event.target.value)}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                      >
+                        <option value="">Select option</option>
+                        {rightOptions.map((option) => (
+                          <option key={`map-${leftItem.id}-${option.id}`} value={option.id}>
+                            {option.id}: {option.text || 'Untitled option'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        );
-      }
-      case 'File Upload Question': {
-        const fileMeta = typeof value === 'object' && value !== null ? value : null;
-        return (
-          <div className="space-y-3">
-            <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-cyan-600/50 bg-slate-900/50 px-6 py-10 text-center transition-colors hover:border-cyan-400">
-              <span className="text-sm font-semibold text-cyan-200">Drop a file or click to browse</span>
-              <span className="mt-1 text-xs text-slate-400">Accepted by browser picker; filename is attached to submission payload.</span>
-              <input
-                type="file"
-                className="hidden"
-                onChange={(event) => {
-                  const selectedFile = event.target.files?.[0];
-                  if (!selectedFile) {
-                    updateAnswer(currentQuestion.id, null);
-                    return;
-                  }
-                  updateAnswer(currentQuestion.id, {
-                    name: selectedFile.name,
-                    size: selectedFile.size,
-                    type: selectedFile.type || 'application/octet-stream',
-                  });
-                }}
-              />
-            </label>
-            {fileMeta?.name ? (
-              <p className="text-xs text-cyan-300">Selected file: {fileMeta.name}</p>
-            ) : null}
+            </div>
+
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/65 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-300">Right Options</p>
+              <p className="mt-1 text-xs text-slate-400">Includes distractors.</p>
+              <div className="mt-3 space-y-3">
+                {rightOptions.map((option) => (
+                  <div key={`right-${option.id}`} className="rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{option.id}</p>
+                    <div className="mt-1 text-sm text-slate-100">
+                      <MathText value={option.text || option.id} />
+                    </div>
+                    {option.image_url ? (
+                      <div className="mt-2 overflow-hidden rounded-lg border border-slate-700 bg-slate-900/60 p-2">
+                        <img
+                          src={option.image_url}
+                          alt={`${option.id} reference`}
+                          className="pointer-events-none select-none h-auto max-h-[100px] w-full object-contain"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         );
       }
@@ -554,7 +487,7 @@ export default function QuestionPlayer({ quiz, studentName, onSubmit }) {
               <img
                 src={currentQuestion.question_image_url}
                 alt="Question visual diagram"
-                className="max-w-full h-auto rounded-2xl border border-slate-800 shadow-lg mb-4 object-contain mx-auto"
+                className="pointer-events-none select-none max-w-full h-auto rounded-2xl border border-slate-800 shadow-lg mb-4 object-contain mx-auto"
               />
             </div>
           ) : null}

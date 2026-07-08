@@ -1,15 +1,53 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE_URL, authFetch } from './apiClient';
 import WordCloudComponent from './WordCloudComponent';
+import LatexText from './LatexText';
+import {
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from 'recharts';
 
 const POLL_INTERVAL_MS = 4000;
+const PIE_COLORS = ['#06b6d4', '#22c55e', '#f59e0b', '#a78bfa', '#ef4444', '#14b8a6', '#f97316'];
+const TRUE_FALSE_COLORS = {
+  True: '#22c55e',
+  False: '#ef4444',
+};
+
+function ChoicePieTooltip({ active, payload, totalSelections }) {
+  if (!active || !Array.isArray(payload) || !payload.length) {
+    return null;
+  }
+
+  const point = payload[0]?.payload;
+  if (!point) {
+    return null;
+  }
+
+  const count = Number(point.value || 0);
+  const percent = totalSelections > 0
+    ? ((count / totalSelections) * 100).toFixed(1)
+    : '0.0';
+
+  return (
+    <div className="rounded-xl border border-slate-700 bg-slate-950/95 p-3 shadow-xl">
+      <p className="text-sm font-semibold text-slate-100">{point.name}</p>
+      <p className="mt-1 text-xs text-cyan-300">Students: {count}</p>
+      <p className="text-xs text-slate-300">Share: {percent}%</p>
+    </div>
+  );
+}
 
 function normalizeWordCloud(input) {
   if (Array.isArray(input)) {
     return input
       .map((item) => ({
-        text: String(item?.text || item?.word || '').trim().toLowerCase(),
-        value: Number(item?.value || item?.count || 0),
+        text: String(item?.text ?? item?.word ?? item?.token ?? '').trim(),
+        value: Number(item?.value ?? item?.count ?? item?.frequency ?? item?.weight ?? 0),
       }))
       .filter((item) => item.text && item.value > 0)
       .sort((a, b) => b.value - a.value || a.text.localeCompare(b.text));
@@ -17,7 +55,7 @@ function normalizeWordCloud(input) {
 
   if (input && typeof input === 'object') {
     return Object.entries(input)
-      .map(([text, value]) => ({ text: String(text || '').trim().toLowerCase(), value: Number(value || 0) }))
+      .map(([text, value]) => ({ text: String(text || '').trim(), value: Number(value || 0) }))
       .filter((item) => item.text && item.value > 0)
       .sort((a, b) => b.value - a.value || a.text.localeCompare(b.text));
   }
@@ -175,7 +213,50 @@ function normalizeQuestionType(value) {
     return 'choice';
   }
 
+  if (raw === 'true/false' || raw === 'true_false_question' || raw === 'true false') {
+    return 'true_false';
+  }
+
+  if (raw === 'matching' || raw === 'matching_question') {
+    return 'matching';
+  }
+
   return 'unknown';
+}
+
+function resolveTrueFalseLabel(value) {
+  const token = String(value || '').trim().toLowerCase();
+  if (!token) {
+    return null;
+  }
+
+  if (['true', 't', 'a', '1', 'yes', 'y'].includes(token)) {
+    return 'True';
+  }
+
+  if (['false', 'f', 'b', '0', 'no', 'n'].includes(token)) {
+    return 'False';
+  }
+
+  return null;
+}
+
+function clampPercent(value) {
+  const numeric = Number(value || 0);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, numeric));
+}
+
+function matchingBarColor({ isCorrect, isTopDistractor }) {
+  if (isCorrect) {
+    return 'from-emerald-400 to-emerald-500';
+  }
+  if (isTopDistractor) {
+    return 'from-amber-400 to-amber-500';
+  }
+  return 'from-rose-400 to-rose-500';
 }
 
 export default function LiveAnalytics({
@@ -197,6 +278,7 @@ export default function LiveAnalytics({
   const [isRefreshingSummary, setIsRefreshingSummary] = useState(false);
   const [isResponsesPanelOpen, setIsResponsesPanelOpen] = useState(false);
   const [isWordCloudMaximized, setIsWordCloudMaximized] = useState(false);
+  const [maximizedViewport, setMaximizedViewport] = useState({ width: 0, height: 0 });
   const [expandedRows, setExpandedRows] = useState({});
   const [assistantPrompt, setAssistantPrompt] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
@@ -243,6 +325,7 @@ export default function LiveAnalytics({
           question_title: question.question_title,
           question_text: question.question_text,
           question_type: question.question_type,
+          interaction_data: question.interaction_data || {},
         })).filter((question) => question.id);
 
         if (!isMounted) {
@@ -366,12 +449,13 @@ export default function LiveAnalytics({
               question_title: question.question_title,
               question_text: question.question_text,
               question_type: question.question_type,
+              interaction_data: question.interaction_data || {},
             })).filter((question) => question.id);
             setQuestionOptions(normalizedCatalog);
           }
 
           if (data.generated_word_cloud || forceRefresh) {
-            setWordCloudData(normalizeWordCloud(data.word_cloud_data || data.word_cloud || data.wordCloud || []));
+            setWordCloudData(data.word_cloud_data || data.word_cloud || data.wordCloud || []);
           }
 
           const hasSummaryPayload = normalizedInsights.gist.length > 0
@@ -477,15 +561,31 @@ export default function LiveAnalytics({
       return undefined;
     }
 
+    const updateViewport = () => {
+      setMaximizedViewport({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+
+    updateViewport();
+
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
         setIsWordCloudMaximized(false);
       }
     };
 
+    window.addEventListener('resize', updateViewport);
     window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
+    return () => {
+      window.removeEventListener('resize', updateViewport);
+      window.removeEventListener('keydown', handleEscape);
+    };
   }, [isWordCloudMaximized]);
+
+  const maximizedCloudWidth = Math.max(320, Number(maximizedViewport.width || 0) - 48);
+  const maximizedCloudHeight = Math.max(240, Number(maximizedViewport.height || 0) - 48);
 
   const formatRemainingTime = (seconds) => {
     const safeSeconds = Math.max(0, Number(seconds || 0));
@@ -670,7 +770,7 @@ export default function LiveAnalytics({
         ?? (Array.isArray(payload.responses) ? payload.responses.length : 0)
         ?? 0;
 
-      setWordCloudData(normalizeWordCloud(payload.word_cloud_data || payload.word_cloud || payload.wordCloud || []));
+      setWordCloudData(payload.word_cloud_data || payload.word_cloud || payload.wordCloud || []);
       setAnalytics((prev) => ({
         ...payload,
         word_cloud_image_data_uri: String(payload.word_cloud_image_data_uri || '').trim()
@@ -698,12 +798,17 @@ export default function LiveAnalytics({
   const scopedPromptHistory = promptHistory.filter((item) => String(item?.question_id || '') === String(activeQuestionId || ''));
   const visiblePromptHistory = chatMessages.length ? chatMessages : scopedPromptHistory;
   const activeQuestion = questionOptions.find((question) => String(question.id) === String(activeQuestionId));
+  const activeQuestionPromptText = String(
+    activeQuestion?.question_text || activeQuestion?.question_title || analytics?.question_prompt || ''
+  ).trim();
   const activeQuestionTypeCategory = normalizeQuestionType(
     analytics?.active_question_type || activeQuestion?.question_type
   );
   const isShortTextQuestion = activeQuestionTypeCategory === 'short_text';
   const isEssayQuestion = activeQuestionTypeCategory === 'essay';
   const isMultipleChoiceQuestion = activeQuestionTypeCategory === 'choice';
+  const isTrueFalseQuestion = activeQuestionTypeCategory === 'true_false';
+  const isMatchingQuestion = activeQuestionTypeCategory === 'matching';
   const activeQuestionSummary = activeQuestionId
     ? aiSummariesByQuestion[String(activeQuestionId)] || null
     : null;
@@ -729,12 +834,81 @@ export default function LiveAnalytics({
       .map(([choice, count]) => ({ choice, count }))
       .sort((a, b) => a.choice.localeCompare(b.choice));
 
-    const maxCount = entries.reduce((max, item) => Math.max(max, item.count), 0);
+    const totalSelections = entries.reduce((sum, item) => sum + Number(item.count || 0), 0);
+
+    const chartData = entries.map((item) => ({
+      name: `Option ${item.choice}`,
+      value: Number(item.count || 0),
+      choice: item.choice,
+      percentage: totalSelections > 0 ? (Number(item.count || 0) / totalSelections) * 100 : 0,
+    }));
+
     return {
       entries,
-      maxCount,
+      totalSelections,
+      chartData,
     };
   }, [individualSubmissions]);
+
+  const trueFalseMetrics = useMemo(() => {
+    const tallies = { True: 0, False: 0 };
+    const activeId = String(activeQuestionId || '');
+
+    individualSubmissions.forEach((submission) => {
+      let label = null;
+
+      if (activeId && Array.isArray(submission?.answers)) {
+        const currentAnswer = submission.answers.find(
+          (answer) => String(answer?.question_id || '') === activeId
+        );
+
+        if (currentAnswer) {
+          label = resolveTrueFalseLabel(currentAnswer.answer_text);
+        }
+      }
+
+      if (!label) {
+        const choiceTokens = String(submission?.choice_badge || '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean);
+        if (choiceTokens.length > 0) {
+          label = resolveTrueFalseLabel(choiceTokens[0]);
+        }
+      }
+
+      if (label && Object.prototype.hasOwnProperty.call(tallies, label)) {
+        tallies[label] += 1;
+      }
+    });
+
+    const totalSelections = tallies.True + tallies.False;
+    const chartData = ['True', 'False'].map((label) => ({
+      name: label,
+      value: Number(tallies[label] || 0),
+      percentage: totalSelections > 0 ? ((Number(tallies[label] || 0) / totalSelections) * 100) : 0,
+      color: TRUE_FALSE_COLORS[label],
+    }));
+
+    return {
+      totalSelections,
+      chartData,
+    };
+  }, [individualSubmissions, activeQuestionId]);
+
+  const matchingSummary = useMemo(() => {
+    const summary = analytics?.matching_summary;
+    if (!summary || typeof summary !== 'object') {
+      return null;
+    }
+
+    const rows = Array.isArray(summary.rows) ? summary.rows : [];
+    const totalSubmissions = Number(summary.total_submissions || submissionCount || 0);
+    return {
+      rows,
+      totalSubmissions,
+    };
+  }, [analytics, submissionCount]);
 
   const toggleExpandedRow = (submissionId) => {
     setExpandedRows((prev) => ({
@@ -889,6 +1063,17 @@ export default function LiveAnalytics({
               })}
             </div>
 
+            <div className="mt-4 rounded-2xl border border-slate-700/80 bg-slate-950/70 p-4 sm:p-5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300">Active Question Prompt</p>
+              <h3 className="mt-2 text-sm leading-7 text-slate-100 sm:text-base">
+                {activeQuestionPromptText ? (
+                  <LatexText text={activeQuestionPromptText} />
+                ) : (
+                  'Prompt unavailable for the selected question.'
+                )}
+              </h3>
+            </div>
+
             {isShortTextQuestion ? (
               <div className="mt-5 rounded-2xl border border-cyan-500/25 bg-cyan-500/10 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -959,30 +1144,73 @@ export default function LiveAnalytics({
             {isMultipleChoiceQuestion ? (
               <div className="space-y-4">
                 <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-4">
-                  <h3 className="text-lg font-semibold text-slate-100">Selection Metrics</h3>
-                  <p className="mt-2 text-sm text-slate-300">Local bar chart for the active question tab.</p>
-                  <div className="mt-4 space-y-3">
-                    {choiceMetrics.entries.length ? choiceMetrics.entries.map((item) => (
-                      <div key={item.choice}>
-                        <div className="mb-1 flex items-center justify-between text-xs text-slate-300">
-                          <span>Choice {item.choice}</span>
-                          <span>{item.count}</span>
-                        </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500"
-                            style={{ width: `${choiceMetrics.maxCount ? Math.round((item.count / choiceMetrics.maxCount) * 100) : 0}%` }}
-                          />
+                  <h3 className="text-lg font-semibold text-slate-100">Live Answer Distribution</h3>
+                  <p className="mt-2 text-sm text-slate-300">Real-time pie chart for the active multiple-choice question.</p>
+
+                  {choiceMetrics.chartData.length ? (
+                    <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_0.8fr] xl:items-start">
+                      <div className="h-[300px] w-full overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/80 p-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={choiceMetrics.chartData}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={55}
+                              outerRadius={105}
+                              paddingAngle={2}
+                              stroke="#0f172a"
+                              strokeWidth={2}
+                            >
+                              {choiceMetrics.chartData.map((entry, index) => (
+                                <Cell key={`slice-${entry.choice}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip content={<ChoicePieTooltip totalSelections={choiceMetrics.totalSelections} />} />
+                            <Legend
+                              verticalAlign="bottom"
+                              align="center"
+                              iconType="circle"
+                              formatter={(value, entry) => {
+                                const point = entry?.payload;
+                                const count = Number(point?.value || 0);
+                                const percent = choiceMetrics.totalSelections > 0
+                                  ? ((count / choiceMetrics.totalSelections) * 100).toFixed(1)
+                                  : '0.0';
+                                return `${value}: ${count} (${percent}%)`;
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-sm text-slate-200">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Summary</p>
+                        <p className="mt-2">Total selections: <span className="font-semibold text-white">{choiceMetrics.totalSelections}</span></p>
+                        <p className="mt-1">Submissions: <span className="font-semibold text-white">{submissionCount}</span></p>
+                        <div className="mt-3 space-y-2">
+                          {choiceMetrics.chartData.map((entry, index) => (
+                            <div key={`legend-${entry.choice}`} className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="h-2.5 w-2.5 rounded-full"
+                                  style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                                />
+                                <span>{entry.name}</span>
+                              </div>
+                              <span>{entry.value} ({entry.percentage.toFixed(1)}%)</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    )) : (
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
                       <p className="text-sm text-slate-400">No choice selections received yet for this question.</p>
-                    )}
-                  </div>
-                  <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-center">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Submissions</p>
-                    <p className="mt-1 text-lg font-semibold text-white">{submissionCount}</p>
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -995,7 +1223,190 @@ export default function LiveAnalytics({
               </div>
             ) : null}
 
-            {(isShortTextQuestion || isEssayQuestion || isMultipleChoiceQuestion) ? (
+            {isTrueFalseQuestion ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-4">
+                  <h3 className="text-lg font-semibold text-slate-100">Live True/False Distribution</h3>
+                  <p className="mt-2 text-sm text-slate-300">Real-time agreement split for the active True/False question.</p>
+
+                  {trueFalseMetrics.totalSelections > 0 ? (
+                    <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_0.8fr] xl:items-start">
+                      <div className="h-[300px] w-full overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/80 p-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={trueFalseMetrics.chartData}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={55}
+                              outerRadius={105}
+                              paddingAngle={2}
+                              stroke="#0f172a"
+                              strokeWidth={2}
+                            >
+                              {trueFalseMetrics.chartData.map((entry) => (
+                                <Cell key={`tf-slice-${entry.name}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip content={<ChoicePieTooltip totalSelections={trueFalseMetrics.totalSelections} />} />
+                            <Legend
+                              verticalAlign="bottom"
+                              align="center"
+                              iconType="circle"
+                              formatter={(value, entry) => {
+                                const point = entry?.payload;
+                                const count = Number(point?.value || 0);
+                                const percent = trueFalseMetrics.totalSelections > 0
+                                  ? ((count / trueFalseMetrics.totalSelections) * 100).toFixed(1)
+                                  : '0.0';
+                                return `${value}: ${count} (${percent}%)`;
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-sm text-slate-200">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Summary</p>
+                        <p className="mt-2">Total selections: <span className="font-semibold text-white">{trueFalseMetrics.totalSelections}</span></p>
+                        <p className="mt-1">Submissions: <span className="font-semibold text-white">{submissionCount}</span></p>
+                        <div className="mt-3 space-y-2">
+                          {trueFalseMetrics.chartData.map((entry) => (
+                            <div key={`tf-legend-${entry.name}`} className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="h-2.5 w-2.5 rounded-full"
+                                  style={{ backgroundColor: entry.color }}
+                                />
+                                <span>{entry.name}</span>
+                              </div>
+                              <span>{entry.value} ({entry.percentage.toFixed(1)}%)</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                      <p className="text-sm text-slate-400">No True/False selections received yet for this question.</p>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsResponsesPanelOpen(true)}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25"
+                >
+                  See Individual Student Answers
+                </button>
+              </div>
+            ) : null}
+
+            {isMatchingQuestion ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-4">
+                  <h3 className="text-lg font-semibold text-slate-100">Matching Pair Breakdown</h3>
+                  <p className="mt-2 text-sm text-slate-300">Each segment shows one left-side prompt and the real-time distribution of matching selections.</p>
+
+                  {matchingSummary?.rows?.length ? (
+                    <div className="mt-4 grid grid-cols-1 gap-4">
+                      {matchingSummary.rows.map((row, rowIndex) => {
+                        const sortedBreakdown = Array.isArray(row.selection_breakdown)
+                          ? [...row.selection_breakdown].sort((a, b) => Number(b.count || 0) - Number(a.count || 0))
+                          : [];
+                        const topDistractorId = sortedBreakdown.find((entry) => !entry.is_correct && Number(entry.count || 0) > 0)?.right_id || null;
+                        const correctedPercent = clampPercent(row.correct_percentage);
+
+                        return (
+                          <article key={`matching-row-${row.left_id}`} className="rounded-2xl border border-slate-700 bg-slate-900/55 p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300">Match {rowIndex + 1} • {row.left_id}</p>
+                                <h4 className="mt-2 text-sm leading-7 text-slate-100 sm:text-base"><LatexText text={row.left_text || row.left_id} /></h4>
+                                {row.left_image_url ? (
+                                  <div className="mt-3 overflow-hidden rounded-lg border border-slate-700 bg-slate-900/60 p-2">
+                                    <img
+                                      src={row.left_image_url}
+                                      alt={`${row.left_id} prompt`}
+                                      className="h-auto max-h-[100px] w-full object-contain"
+                                    />
+                                  </div>
+                                ) : null}
+                              </div>
+
+                              <div className="rounded-xl border border-emerald-400/35 bg-emerald-500/10 px-3 py-2 text-right">
+                                <p className="text-[10px] uppercase tracking-[0.16em] text-emerald-300">Accuracy</p>
+                                <p className="mt-1 text-lg font-semibold text-emerald-200">{correctedPercent.toFixed(1)}% Correct</p>
+                                <p className="text-xs text-slate-300">{row.correct_count || 0}/{matchingSummary.totalSubmissions || 0} students</p>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 space-y-2">
+                              {sortedBreakdown.map((entry) => {
+                                const percent = clampPercent(entry.percentage);
+                                const isTopDistractor = !entry.is_correct && entry.right_id === topDistractorId;
+                                return (
+                                  <div key={`matching-bar-${row.left_id}-${entry.right_id}`} className="rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <p className={`text-xs font-semibold ${entry.is_correct ? 'text-emerald-300' : isTopDistractor ? 'text-amber-300' : 'text-rose-300'}`}>
+                                          {entry.right_id}{entry.is_correct ? ' • Correct' : isTopDistractor ? ' • Top Distractor' : ' • Distractor'}
+                                        </p>
+                                        <p className="mt-1 text-xs text-slate-300"><LatexText text={entry.text || entry.right_id} /></p>
+                                      </div>
+                                      <p className="text-xs font-semibold text-slate-200">{percent.toFixed(1)}% ({entry.count || 0})</p>
+                                    </div>
+
+                                    <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-slate-800">
+                                      <div
+                                        className={`h-full rounded-full bg-gradient-to-r ${matchingBarColor({ isCorrect: entry.is_correct, isTopDistractor })}`}
+                                        style={{ width: `${percent}%` }}
+                                      />
+                                    </div>
+
+                                    {entry.image_url ? (
+                                      <div className="mt-2 overflow-hidden rounded-lg border border-slate-700 bg-slate-900/60 p-2">
+                                        <img
+                                          src={entry.image_url}
+                                          alt={`${entry.right_id} option`}
+                                          className="h-auto max-h-[100px] w-full object-contain"
+                                        />
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </article>
+                        );
+                      })}
+
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-sm text-slate-200">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Summary</p>
+                        <p className="mt-2">Submissions: <span className="font-semibold text-white">{matchingSummary.totalSubmissions || 0}</span></p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                      <p className="text-sm text-slate-400">No matching responses received yet for this question.</p>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsResponsesPanelOpen(true)}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25"
+                >
+                  See Individual Student Answers
+                </button>
+              </div>
+            ) : null}
+
+            {(isShortTextQuestion || isEssayQuestion || isMultipleChoiceQuestion || isTrueFalseQuestion || isMatchingQuestion) ? (
               <article className="mt-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h3 className="text-lg font-semibold text-cyan-100">🧠 Quick AI Class Summary</h3>
@@ -1020,26 +1431,27 @@ export default function LiveAnalytics({
               </article>
             ) : null}
 
-            {!isShortTextQuestion && !isEssayQuestion && !isMultipleChoiceQuestion ? (
+            {!isShortTextQuestion && !isEssayQuestion && !isMultipleChoiceQuestion && !isTrueFalseQuestion && !isMatchingQuestion ? (
               <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-4 text-sm text-slate-300">
                 Select a question to view the question-type specific analytics modules.
               </div>
             ) : null}
           </section>
 
-          {!staticMode && (isShortTextQuestion || isEssayQuestion || isMultipleChoiceQuestion) ? (
+          {!staticMode && (isShortTextQuestion || isEssayQuestion || isMultipleChoiceQuestion || isTrueFalseQuestion || isMatchingQuestion) ? (
             <section className="mb-6 rounded-3xl border border-slate-800/90 bg-slate-900/70 p-5 md:p-6">
               <div className="mb-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-cyan-300">Professor Assistant</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-cyan-300">INSTRUCTOR ASSISTANT</p>
                 <h4 className="mt-2 text-lg font-semibold text-white">Ask About Student Answers</h4>
                 <p className="mt-2 text-xs text-slate-400">Scoped to active tab: {activeQuestion?.label || `Question ${activeQuestionId || '-'}`}</p>
               </div>
 
-              <div className="max-h-72 space-y-3 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/70 p-3">
-                {visiblePromptHistory.length ? visiblePromptHistory.map((item) => (
+              {visiblePromptHistory.length ? (
+                <div className="max-h-72 space-y-3 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                  {visiblePromptHistory.map((item) => (
                   <div key={item.id || item.created_at} className="space-y-2">
                     <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3 text-sm text-slate-200">
-                      <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-cyan-300">Professor Prompt</p>
+                      <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-cyan-300">Instructor Prompt</p>
                       <p>{item.prompt_text}</p>
                     </div>
                     <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-3 text-sm text-violet-100">
@@ -1067,10 +1479,9 @@ export default function LiveAnalytics({
                       )}
                     </div>
                   </div>
-                )) : (
-                  <p className="text-sm text-slate-500">No scoped assistant prompts yet for this question.</p>
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : null}
 
               <div className="mt-3 space-y-2">
                 <input
@@ -1196,26 +1607,31 @@ export default function LiveAnalytics({
       {isWordCloudMaximized && (
         <div
           onClick={() => setIsWordCloudMaximized(false)}
-          className="fixed inset-0 top-0 left-0 w-screen h-screen z-[999] flex items-center justify-center bg-slate-950/95 backdrop-blur-md"
+          className="fixed inset-0 z-[999] bg-slate-950/95 backdrop-blur-md"
           role="dialog"
           aria-modal="true"
           aria-label="Expanded word cloud"
         >
           <div
             onClick={(event) => event.stopPropagation()}
-            className="w-[90vw] h-[80vh] bg-slate-900/40 border border-slate-800 p-8 rounded-2xl shadow-2xl flex items-center justify-center relative"
+            className="relative h-screen w-screen p-4 sm:p-6"
           >
             <button
               type="button"
               onClick={() => setIsWordCloudMaximized(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-950 px-3 py-1 rounded-md text-sm border border-slate-800"
+              className="absolute right-4 top-4 z-10 rounded-md border border-slate-700 bg-slate-950/90 px-3 py-1 text-sm text-slate-300 transition hover:text-white"
             >
               Minimize
             </button>
 
-            <div className="w-full h-full flex items-center justify-center">
+            <div className="h-full w-full">
               {wordCloud.length ? (
-                <WordCloudComponent data={wordCloud} width={1400} height={800} />
+                <WordCloudComponent
+                  data={wordCloud}
+                  width={maximizedCloudWidth}
+                  height={maximizedCloudHeight}
+                  className="h-full w-full"
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center rounded-2xl border border-slate-800 bg-slate-950/70">
                   <p className="text-sm text-slate-400">Generate a word cloud first to view it in expanded mode.</p>
@@ -1223,10 +1639,6 @@ export default function LiveAnalytics({
               )}
             </div>
           </div>
-
-          <p className="mt-6 text-lg font-medium text-slate-400 tracking-wide bg-slate-900/80 px-6 py-2 rounded-full border border-slate-800/50">
-            Live Feedback Cloud • Click anywhere to return to panel
-          </p>
         </div>
       )}
     </div>

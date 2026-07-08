@@ -41,7 +41,7 @@ class Quiz(models.Model):
 class UserProfile(models.Model):
     ROLE_CHOICES = [
         ('student', 'Student'),
-        ('professor', 'Professor'),
+        ('professor', 'Instructor'),
     ]
 
     SECURITY_QUESTION_CHOICES = [
@@ -71,19 +71,13 @@ class Question(models.Model):
         ('Multiple Choice', 'Multiple Choice'),
         ('True/False', 'True/False'),
         ('Fill In the Blank', 'Fill In the Blank'),
-        ('Fill In Multiple Blanks', 'Fill In Multiple Blanks'),
-        ('Multiple Answers', 'Multiple Answers'),
-        ('Multiple Dropdowns', 'Multiple Dropdowns'),
         ('Matching', 'Matching'),
-        ('Numerical Answer', 'Numerical Answer'),
-        ('Formula Question', 'Formula Question'),
+        ('Short Answer', 'Short Answer'),
         ('Essay Question', 'Essay Question'),
-        ('File Upload Question', 'File Upload Question'),
-        ('Text (no question)', 'Text (no question)'),
         ('multiple_choice_question', 'Multiple Choice'),
         ('true_false_question', 'True/False'),
+        ('matching_question', 'Matching'),
         ('essay_question', 'Essay'),
-        ('formula_question', 'Formula'),
         ('one_word_question', 'One Word'),
         ('fill_in_the_blank_question', 'Fill in the Blank'),
     ]
@@ -94,7 +88,7 @@ class Question(models.Model):
     question_type = models.CharField(max_length=30, choices=QUESTION_TYPES)
     question_text = models.TextField()  # Dr. Reshma's raw LaTeX strings save directly here
     question_image = models.URLField(blank=True, null=True)
-    interaction_data = models.JSONField(default=dict, blank=True)  # Stores options, ranges, formulas
+    interaction_data = models.JSONField(default=dict, blank=True)  # Stores choice and answer metadata
     allow_peer_upvoting = models.BooleanField(default=False)
 
     class Meta:

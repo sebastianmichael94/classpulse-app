@@ -18,6 +18,7 @@ from quiz.views import (
     QuestionPeerResponsesView,
     PeerResponseUpvoteView,
     QuestionImageUploadView,
+    ChoiceImageUploadView,
 )
 
 # Setup the DRF router for viewsets
@@ -37,6 +38,7 @@ urlpatterns = [
     path('api/custom-analytics-prompt/', CustomAnalyticsPromptView.as_view()),
     path('api/custom-analytics-prompt/share/', ShareCustomAnalyticsPromptView.as_view()),
     path('api/assets/question-image/', QuestionImageUploadView.as_view()),
+    path('api/assets/choice-image/', ChoiceImageUploadView.as_view()),
     path('api/quizzes/<uuid:quiz_id>/questions/<int:question_id>/responses/', QuestionPeerResponsesView.as_view()),
     path('api/responses/<int:response_id>/upvote/', PeerResponseUpvoteView.as_view()),
     path('api/', include(router.urls)),    # Includes all automatic viewset routes

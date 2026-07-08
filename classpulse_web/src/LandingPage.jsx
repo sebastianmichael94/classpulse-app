@@ -52,15 +52,15 @@ export default function LandingPage() {
             Welcome to Class Pulse 🎓
           </h1>
           <p className="mt-5 text-lg text-slate-400">
-            Interactive live quizzes and instant AI feedback, simplified.
+            Live quizzes with quick class feedback.
           </p>
         </header>
 
         <main className="mt-8 grid flex-1 gap-5 md:grid-cols-2">
           <AccessDoor
             to="/login?role=professor"
-            title="Teacher Portal"
-            subtitle="Administrator login only. Enter with authorized email and password to launch quizzes and access class analytics."
+            title="Instructor Portal"
+            subtitle="Sign in to create quizzes and view class results."
             accentClass="text-cyan-200"
             pulseClass="hover:shadow-[0_0_40px_rgba(34,211,238,0.25)]"
           />
@@ -71,7 +71,7 @@ export default function LandingPage() {
 
             <div className="relative z-10">
               <h2 className="mt-3 text-2xl font-semibold text-emerald-200">Student Join Area</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">Enter your active live class PIN code to join the lecture session and submit answers.</p>
+              <p className="mt-3 text-sm leading-7 text-slate-300">Enter your class PIN to join and submit answers.</p>
 
               <form onSubmit={handleStudentJoin} className="mt-6 space-y-3">
                 <input
@@ -91,7 +91,7 @@ export default function LandingPage() {
                   disabled={accessCode.length !== 4}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600/80 bg-slate-950/80 px-4 py-3 text-sm font-medium text-slate-100 transition-all hover:border-emerald-400/60 hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Join Lecture Session
+                  Join Quiz
                   <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
                 </button>
               </form>

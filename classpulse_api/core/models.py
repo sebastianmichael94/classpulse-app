@@ -30,8 +30,9 @@ class Question(models.Model):
     QUESTION_TYPES = [
         ('multiple_choice_question', 'Multiple Choice'),
         ('true_false_question', 'True/False'),
+        ('matching_question', 'Matching'),
         ('essay_question', 'Essay'),
-        ('formula_question', 'Formula'),
+        ('fill_in_the_blank_question', 'Fill In the Blank'),
     ]
 
     quiz = models.ForeignKey(Quiz, related_name='questions', on_delete=models.CASCADE)
@@ -39,7 +40,7 @@ class Question(models.Model):
     question_title = models.CharField(max_length=255)
     question_type = models.CharField(max_length=30, choices=QUESTION_TYPES)
     question_text = models.TextField()  # Dr. Reshma's raw LaTeX strings save directly here
-    interaction_data = models.JSONField(default=dict, blank=True)  # Stores options, ranges, formulas
+    interaction_data = models.JSONField(default=dict, blank=True)  # Stores choice and answer metadata
 
     class Meta:
         ordering = ['order_index']

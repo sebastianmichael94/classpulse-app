@@ -75,6 +75,31 @@ export default function QuestionCanvas({ quiz, studentName, onSubmit }) {
 
   const renderInput = () => {
     const value = answers[currentQuestion.id] ?? '';
+    const normalizeMatchingItems = (rawItems, prefix = 'L') => {
+      const items = Array.isArray(rawItems) ? rawItems : [];
+      return items.map((item, index) => {
+        if (item && typeof item === 'object' && !Array.isArray(item)) {
+          return {
+            id: String(item.id || `${prefix}${index + 1}`).trim() || `${prefix}${index + 1}`,
+            text: String(item.text || '').trim(),
+            image_url: item.image_url ? String(item.image_url).trim() : null,
+          };
+        }
+
+        return {
+          id: `${prefix}${index + 1}`,
+          text: String(item || '').trim(),
+          image_url: null,
+        };
+      });
+    };
+
+    const updateMatchingAnswer = (leftId, rightId) => {
+      updateAnswer(currentQuestion.id, {
+        ...(value && typeof value === 'object' && !Array.isArray(value) ? value : {}),
+        [leftId]: rightId,
+      });
+    };
 
     switch (currentQuestion.question_type) {
       case 'multiple_choice_question':
@@ -112,6 +137,7 @@ export default function QuestionCanvas({ quiz, studentName, onSubmit }) {
           </div>
         );
       case 'essay_question':
+      case 'Short Answer':
         return (
           <textarea
             rows={8}
@@ -121,23 +147,9 @@ export default function QuestionCanvas({ quiz, studentName, onSubmit }) {
             placeholder="Write your response here..."
           />
         );
-      case 'formula_question':
-        return (
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4 text-sm text-slate-300">
-              <MathText value={currentQuestion.question_text} />
-            </div>
-            <input
-              type="number"
-              value={value}
-              onChange={(e) => updateAnswer(currentQuestion.id, e.target.value)}
-              className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
-              placeholder="Enter numeric response"
-            />
-          </div>
-        );
       case 'one_word_question':
       case 'fill_in_the_blank_question':
+      case 'Fill In the Blank':
         return (
           <input
             type="text"
@@ -147,6 +159,54 @@ export default function QuestionCanvas({ quiz, studentName, onSubmit }) {
             placeholder="Type your answer"
           />
         );
+      case 'Matching':
+      case 'matching_question': {
+        const leftItems = normalizeMatchingItems(currentQuestion.interaction_data?.left_items, 'L');
+        const rightOptions = normalizeMatchingItems(currentQuestion.interaction_data?.right_options, 'R');
+        const matchingValue = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+
+        return (
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 space-y-3">
+              {leftItems.map((leftItem) => (
+                <div key={`left-${leftItem.id}`} className="rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">{leftItem.id}</p>
+                  <p className="mt-1 text-sm text-slate-100"><MathText value={leftItem.text || leftItem.id} /></p>
+                  {leftItem.image_url ? (
+                    <div className="mt-2 overflow-hidden rounded-lg border border-slate-700 bg-slate-900/60 p-2">
+                      <img src={leftItem.image_url} alt={`${leftItem.id} reference`} className="pointer-events-none select-none h-auto max-h-[100px] w-full object-contain" />
+                    </div>
+                  ) : null}
+                  <select
+                    value={String(matchingValue[leftItem.id] || '')}
+                    onChange={(event) => updateMatchingAnswer(leftItem.id, event.target.value)}
+                    className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                  >
+                    <option value="">Select option</option>
+                    {rightOptions.map((option) => (
+                      <option key={`map-${leftItem.id}-${option.id}`} value={option.id}>{option.id}: {option.text || 'Untitled option'}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 space-y-3">
+              {rightOptions.map((option) => (
+                <div key={`right-${option.id}`} className="rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">{option.id}</p>
+                  <p className="mt-1 text-sm text-slate-100"><MathText value={option.text || option.id} /></p>
+                  {option.image_url ? (
+                    <div className="mt-2 overflow-hidden rounded-lg border border-slate-700 bg-slate-900/60 p-2">
+                      <img src={option.image_url} alt={`${option.id} reference`} className="pointer-events-none select-none h-auto max-h-[100px] w-full object-contain" />
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
       default:
         return null;
     }

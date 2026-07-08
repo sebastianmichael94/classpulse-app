@@ -4,64 +4,135 @@ import { API_BASE_URL } from './apiClient';
 const QUESTION_TYPES = [
   'Multiple Choice',
   'True/False',
-  'Fill In the Blank',
-  'Fill In Multiple Blanks',
-  'Multiple Answers',
-  'Multiple Dropdowns',
   'Matching',
-  'Numerical Answer',
-  'Formula Question',
+  'Fill In the Blank',
+  'Short Answer',
   'Essay Question',
-  'File Upload Question',
-  'Text (no question)',
 ];
+
+const defaultChoice = (index, text = '') => ({
+  id: String.fromCharCode(65 + index),
+  text,
+  image_url: null,
+});
+
+const TRUE_FALSE_OPTIONS = [
+  defaultChoice(0, 'True'),
+  defaultChoice(1, 'False'),
+];
+
+const defaultMatchingItem = (prefix, index, text = '') => ({
+  id: `${prefix}${index + 1}`,
+  text,
+  image_url: null,
+});
+
+const withReindexedMatchingIds = (items = [], prefix = 'L') => items.map((item, index) => ({
+  ...item,
+  id: `${prefix}${index + 1}`,
+}));
+
+const normalizeMatchingItems = (rawItems = [], prefix = 'L') => {
+  const items = Array.isArray(rawItems) ? rawItems : [];
+  return withReindexedMatchingIds(items.map((item, index) => {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      return {
+        id: String(item.id || `${prefix}${index + 1}`).trim() || `${prefix}${index + 1}`,
+        text: String(item.text || '').trim(),
+        image_url: item.image_url ? String(item.image_url).trim() : null,
+      };
+    }
+
+    return defaultMatchingItem(prefix, index, String(item || '').trim());
+  }), prefix);
+};
+
+const normalizeChoiceOptions = (rawOptions = []) => {
+  const options = Array.isArray(rawOptions) ? rawOptions : [];
+
+  return options.map((option, index) => {
+    if (option && typeof option === 'object' && !Array.isArray(option)) {
+      const optionId = String(option.id || String.fromCharCode(65 + index)).trim() || String.fromCharCode(65 + index);
+      return {
+        id: optionId,
+        text: String(option.text || '').trim(),
+        image_url: option.image_url ? String(option.image_url).trim() : null,
+      };
+    }
+
+    return defaultChoice(index, String(option || '').trim());
+  });
+};
+
+const withReindexedChoiceIds = (options = []) => options.map((option, index) => ({
+  ...option,
+  id: String.fromCharCode(65 + index),
+}));
 
 export default function QuizCreator({ onSaveQuestion, questionList = [], onDeleteQuestion, onReorderQuestion }) {
   const [title, setTitle] = useState('');
   const [questionText, setQuestionText] = useState('');
   const [type, setType] = useState('Multiple Choice');
   
-  const [options, setOptions] = useState(['', '']);
+  const [options, setOptions] = useState([defaultChoice(0), defaultChoice(1)]);
   const [correctOption, setCorrectOption] = useState(0);
-  const [correctOptions, setCorrectOptions] = useState([]);
-
-  const [formula, setFormula] = useState('');
-  const [variableMin, setVariableMin] = useState('1');
-  const [variableMax, setVariableMax] = useState('10');
-  const [matchingPromptsText, setMatchingPromptsText] = useState('');
-  const [matchingTargetsText, setMatchingTargetsText] = useState('');
   const [allowPeerUpvoting, setAllowPeerUpvoting] = useState(false);
   const [questionImageUrl, setQuestionImageUrl] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState('');
+  const [uploadingChoiceIndex, setUploadingChoiceIndex] = useState(null);
+  const [choiceImageError, setChoiceImageError] = useState('');
+  const [matchingLeftItems, setMatchingLeftItems] = useState([
+    defaultMatchingItem('L', 0),
+    defaultMatchingItem('L', 1),
+  ]);
+  const [matchingRightOptions, setMatchingRightOptions] = useState([
+    defaultMatchingItem('R', 0),
+    defaultMatchingItem('R', 1),
+  ]);
+  const [matchingCorrectMap, setMatchingCorrectMap] = useState({
+    L1: 'R1',
+    L2: 'R2',
+  });
+  const [matchingImageError, setMatchingImageError] = useState('');
+  const [uploadingMatchingItem, setUploadingMatchingItem] = useState(null);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState(null);
 
-  const isOptionType = ['Multiple Choice', 'Multiple Answers', 'Multiple Dropdowns'].includes(type);
-  const isPeerUpvotingType = ['Essay Question', 'Fill In the Blank', 'Fill In Multiple Blanks'].includes(type);
+  const isOptionType = type === 'Multiple Choice';
+  const isPeerUpvotingType = ['Essay Question', 'Short Answer', 'Fill In the Blank'].includes(type);
 
   const handleTypeChange = (newType) => {
     setType(newType);
     if (newType === 'True/False') {
-      setOptions(['True', 'False']);
+      setOptions(withReindexedChoiceIds(TRUE_FALSE_OPTIONS));
       setCorrectOption(0);
-      setCorrectOptions([0]);
-    } else if (['Multiple Choice', 'Multiple Answers', 'Multiple Dropdowns'].includes(newType)) {
-      setOptions(['', '']);
+    } else if (newType === 'Multiple Choice') {
+      setOptions([defaultChoice(0), defaultChoice(1)]);
       setCorrectOption(0);
-      setCorrectOptions([]);
+    } else if (newType === 'Matching') {
+      const defaultLeft = [defaultMatchingItem('L', 0), defaultMatchingItem('L', 1)];
+      const defaultRight = [defaultMatchingItem('R', 0), defaultMatchingItem('R', 1), defaultMatchingItem('R', 2)];
+      setMatchingLeftItems(defaultLeft);
+      setMatchingRightOptions(defaultRight);
+      setMatchingCorrectMap({
+        L1: 'R1',
+        L2: 'R2',
+      });
     }
 
-    if (!['Essay Question', 'Fill In the Blank', 'Fill In Multiple Blanks'].includes(newType)) {
+    if (!['Essay Question', 'Short Answer', 'Fill In the Blank'].includes(newType)) {
       setAllowPeerUpvoting(false);
     }
   };
 
-  const handleAddOption = () => setOptions([...options, '']);
+  const handleAddOption = () => {
+    setOptions((prev) => withReindexedChoiceIds([...prev, defaultChoice(prev.length)]));
+  };
 
   const handleRemoveOption = (indexToRemove) => {
     if (options.length <= 2) return;
 
-    setOptions((prevOptions) => prevOptions.filter((_, index) => index !== indexToRemove));
+    setOptions((prevOptions) => withReindexedChoiceIds(prevOptions.filter((_, index) => index !== indexToRemove)));
     setCorrectOption((prevCorrect) => {
       if (prevCorrect === indexToRemove) {
         return Math.max(0, indexToRemove - 1);
@@ -71,23 +142,7 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
       }
       return prevCorrect;
     });
-    setCorrectOptions((prev) => prev.filter((index) => index !== indexToRemove).map((index) => (index > indexToRemove ? index - 1 : index)));
   };
-
-  const toggleCorrectOption = (optionIndex) => {
-    setCorrectOptions((prev) => {
-      if (prev.includes(optionIndex)) {
-        return prev.filter((index) => index !== optionIndex);
-      }
-      return [...prev, optionIndex].sort((a, b) => a - b);
-    });
-  };
-
-  const parseLines = (value) =>
-    String(value || '')
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean);
 
   const uploadQuestionImage = async (file) => {
     if (!file) {
@@ -124,6 +179,91 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
     }
   };
 
+  const uploadChoiceImage = async (file, optionIndex) => {
+    if (!file) {
+      return;
+    }
+
+    if (!String(file.type || '').startsWith('image/')) {
+      setChoiceImageError('Please select a valid image file for this option.');
+      return;
+    }
+
+    setUploadingChoiceIndex(optionIndex);
+    setChoiceImageError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch(`${API_BASE_URL}/api/assets/choice-image/`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Unable to upload option image.');
+      }
+
+      const payload = await response.json();
+      const uploadedImageUrl = payload.image_url || '';
+      setOptions((prev) => prev.map((option, index) => (
+        index === optionIndex
+          ? { ...option, image_url: uploadedImageUrl || null }
+          : option
+      )));
+    } catch (error) {
+      setChoiceImageError(error.message || 'Unable to upload option image.');
+    } finally {
+      setUploadingChoiceIndex(null);
+    }
+  };
+
+  const uploadMatchingImage = async ({ file, side, itemIndex }) => {
+    if (!file) {
+      return;
+    }
+
+    if (!String(file.type || '').startsWith('image/')) {
+      setMatchingImageError('Please select a valid image file for this item.');
+      return;
+    }
+
+    setUploadingMatchingItem(`${side}-${itemIndex}`);
+    setMatchingImageError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch(`${API_BASE_URL}/api/assets/choice-image/`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Unable to upload matching item image.');
+      }
+
+      const payload = await response.json();
+      const uploadedImageUrl = payload.image_url || '';
+
+      if (side === 'left') {
+        setMatchingLeftItems((prev) => prev.map((item, index) => (
+          index === itemIndex ? { ...item, image_url: uploadedImageUrl || null } : item
+        )));
+      } else {
+        setMatchingRightOptions((prev) => prev.map((item, index) => (
+          index === itemIndex ? { ...item, image_url: uploadedImageUrl || null } : item
+        )));
+      }
+    } catch (error) {
+      setMatchingImageError(error.message || 'Unable to upload matching item image.');
+    } finally {
+      setUploadingMatchingItem(null);
+    }
+  };
+
   const handleImageInputChange = async (event) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
@@ -139,27 +279,105 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
     }
   };
   
-  const handleOptionChange = (index, value) => {
-    const updated = [...options];
-    updated[index] = value;
-    setOptions(updated);
+  const handleOptionTextChange = (index, value) => {
+    setOptions((prev) => prev.map((option, optionIndex) => (
+      optionIndex === index
+        ? { ...option, text: value }
+        : option
+    )));
+  };
+
+  const handleMatchingTextChange = ({ side, index, value }) => {
+    if (side === 'left') {
+      setMatchingLeftItems((prev) => prev.map((item, itemIndex) => (
+        itemIndex === index ? { ...item, text: value } : item
+      )));
+      return;
+    }
+
+    setMatchingRightOptions((prev) => prev.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, text: value } : item
+    )));
+  };
+
+  const addMatchingLeftItem = () => {
+    setMatchingLeftItems((prev) => {
+      const next = withReindexedMatchingIds([...prev, defaultMatchingItem('L', prev.length)], 'L');
+      setMatchingCorrectMap((prevMap) => {
+        const nextMap = { ...prevMap };
+        const latestLeft = next[next.length - 1];
+        nextMap[latestLeft.id] = matchingRightOptions[next.length - 1]?.id || matchingRightOptions[0]?.id || '';
+        return nextMap;
+      });
+      return next;
+    });
+  };
+
+  const removeMatchingLeftItem = (indexToRemove) => {
+    if (matchingLeftItems.length <= 2) {
+      return;
+    }
+
+    const nextLeftItems = withReindexedMatchingIds(
+      matchingLeftItems.filter((_, index) => index !== indexToRemove),
+      'L',
+    );
+    const nextMap = {};
+    nextLeftItems.forEach((leftItem, index) => {
+      const previousLeft = matchingLeftItems[index >= indexToRemove ? index + 1 : index];
+      const previousLeftId = previousLeft?.id;
+      const mapped = previousLeftId ? matchingCorrectMap[previousLeftId] : null;
+      nextMap[leftItem.id] = matchingRightOptions.some((item) => item.id === mapped)
+        ? mapped
+        : (matchingRightOptions[index]?.id || matchingRightOptions[0]?.id || '');
+    });
+
+    setMatchingLeftItems(nextLeftItems);
+    setMatchingCorrectMap(nextMap);
+  };
+
+  const addMatchingRightOption = () => {
+    setMatchingRightOptions((prev) => withReindexedMatchingIds([...prev, defaultMatchingItem('R', prev.length)], 'R'));
+  };
+
+  const removeMatchingRightOption = (indexToRemove) => {
+    if (matchingRightOptions.length <= Math.max(2, matchingLeftItems.length)) {
+      return;
+    }
+
+    const previous = matchingRightOptions;
+    const next = withReindexedMatchingIds(previous.filter((_, index) => index !== indexToRemove), 'R');
+    setMatchingRightOptions(next);
+    setMatchingCorrectMap((prevMap) => {
+      const nextMap = {};
+      matchingLeftItems.forEach((leftItem, leftIndex) => {
+        const mappedId = String(prevMap[leftItem.id] || '').trim();
+        const removedOption = previous[indexToRemove];
+        const removedId = removedOption?.id;
+        nextMap[leftItem.id] = mappedId && mappedId !== removedId && next.some((item) => item.id === mappedId)
+          ? mappedId
+          : (next[leftIndex]?.id || next[0]?.id || '');
+      });
+      return nextMap;
+    });
   };
 
   const resetFormState = () => {
     setTitle('');
     setQuestionText('');
     setType('Multiple Choice');
-    setOptions(['', '']);
+    setOptions([defaultChoice(0), defaultChoice(1)]);
     setCorrectOption(0);
-    setCorrectOptions([]);
-    setFormula('');
-    setVariableMin('1');
-    setVariableMax('10');
-    setMatchingPromptsText('');
-    setMatchingTargetsText('');
     setAllowPeerUpvoting(false);
     setQuestionImageUrl('');
     setImageUploadError('');
+    setChoiceImageError('');
+    setUploadingChoiceIndex(null);
+    setMatchingLeftItems([defaultMatchingItem('L', 0), defaultMatchingItem('L', 1)]);
+    setMatchingRightOptions([defaultMatchingItem('R', 0), defaultMatchingItem('R', 1)]);
+    setMatchingCorrectMap({ L1: 'R1', L2: 'R2' });
+    setMatchingImageError('');
+    setUploadingMatchingItem(null);
     setEditingQuestionIndex(null);
   };
 
@@ -174,41 +392,88 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
     setQuestionImageUrl(question?.question_image_url || question?.question_image || '');
     setAllowPeerUpvoting(Boolean(question?.allow_peer_upvoting));
 
-    if (['Multiple Choice', 'multiple_choice_question', 'Multiple Answers', 'Multiple Dropdowns', 'True/False', 'true_false_question'].includes(nextType)) {
+    if (['Multiple Choice', 'multiple_choice_question', 'True/False', 'true_false_question'].includes(nextType)) {
       const configuredOptions = Array.isArray(interaction?.options) && interaction.options.length >= 2
-        ? interaction.options
-        : (nextType === 'True/False' || nextType === 'true_false_question' ? ['True', 'False'] : ['', '']);
-      setOptions(configuredOptions);
+        ? normalizeChoiceOptions(interaction.options)
+        : (nextType === 'True/False' || nextType === 'true_false_question'
+          ? TRUE_FALSE_OPTIONS
+          : [defaultChoice(0), defaultChoice(1)]);
+      setOptions(withReindexedChoiceIds(
+        (nextType === 'True/False' || nextType === 'true_false_question')
+          ? TRUE_FALSE_OPTIONS
+          : configuredOptions
+      ));
       setCorrectOption(Number(interaction?.correct_index ?? 0));
-      setCorrectOptions(Array.isArray(interaction?.correct_indices) ? interaction.correct_indices : []);
     } else {
-      setOptions(['', '']);
+      setOptions([defaultChoice(0), defaultChoice(1)]);
       setCorrectOption(0);
-      setCorrectOptions([]);
     }
 
-    if (nextType === 'Formula Question' || nextType === 'formula_question') {
-      const xVariable = interaction?.variables?.x || {};
-      setFormula(interaction?.formula || '');
-      setVariableMin(String(xVariable?.min ?? '1'));
-      setVariableMax(String(xVariable?.max ?? '10'));
-    } else {
-      setFormula('');
-      setVariableMin('1');
-      setVariableMax('10');
-    }
+    if (nextType === 'Matching' || nextType === 'matching_question') {
+      const loadedLeftItems = normalizeMatchingItems(interaction?.left_items, 'L');
+      const loadedRightOptions = normalizeMatchingItems(interaction?.right_options, 'R');
+      const effectiveLeftItems = loadedLeftItems.length >= 2
+        ? loadedLeftItems
+        : [defaultMatchingItem('L', 0), defaultMatchingItem('L', 1)];
+      const effectiveRightOptions = loadedRightOptions.length >= effectiveLeftItems.length
+        ? loadedRightOptions
+        : withReindexedMatchingIds([
+            ...loadedRightOptions,
+            ...Array.from({ length: Math.max(0, effectiveLeftItems.length - loadedRightOptions.length) }, (_, index) => defaultMatchingItem('R', loadedRightOptions.length + index)),
+          ], 'R');
 
-    if (nextType === 'Matching') {
-      setMatchingPromptsText(Array.isArray(interaction?.premises) ? interaction.premises.join('\n') : '');
-      setMatchingTargetsText(Array.isArray(interaction?.targets) ? interaction.targets.join('\n') : '');
-    } else {
-      setMatchingPromptsText('');
-      setMatchingTargetsText('');
+      const rawMapping = interaction?.correct_mapping && typeof interaction.correct_mapping === 'object'
+        ? interaction.correct_mapping
+        : {};
+      const normalizedMap = {};
+      effectiveLeftItems.forEach((leftItem, index) => {
+        const leftId = leftItem.id || `L${index + 1}`;
+        const fallbackRightId = effectiveRightOptions[index]?.id || effectiveRightOptions[0]?.id || '';
+        const mappedRight = String(rawMapping[leftId] || '').trim();
+        normalizedMap[leftId] = effectiveRightOptions.some((option) => option.id === mappedRight)
+          ? mappedRight
+          : fallbackRightId;
+      });
+
+      setMatchingLeftItems(effectiveLeftItems);
+      setMatchingRightOptions(effectiveRightOptions);
+      setMatchingCorrectMap(normalizedMap);
     }
   };
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
+
+    if (type === 'Matching') {
+      if (matchingLeftItems.length < 2) {
+        setMatchingImageError('Add at least 2 left items for a matching question.');
+        return;
+      }
+
+      if (matchingRightOptions.length < matchingLeftItems.length) {
+        setMatchingImageError('Answer options must be equal to or greater than left items (to allow distractors).');
+        return;
+      }
+
+      if (matchingLeftItems.some((item) => !String(item.text || '').trim())) {
+        setMatchingImageError('Each left item requires text (LaTeX supported).');
+        return;
+      }
+
+      if (matchingRightOptions.some((item) => !String(item.text || '').trim())) {
+        setMatchingImageError('Each right option requires text (LaTeX supported).');
+        return;
+      }
+
+      const everyMapped = matchingLeftItems.every((item) => {
+        const mapped = String(matchingCorrectMap[item.id] || '').trim();
+        return matchingRightOptions.some((option) => option.id === mapped);
+      });
+      if (!everyMapped) {
+        setMatchingImageError('Map each left item to a valid right option.');
+        return;
+      }
+    }
 
     const configuration = {
       title,
@@ -221,30 +486,39 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
     };
 
     if (type === 'Multiple Choice' || type === 'True/False') {
+      const effectiveOptions = type === 'True/False'
+        ? withReindexedChoiceIds(TRUE_FALSE_OPTIONS)
+        : withReindexedChoiceIds(options);
+
       configuration.interaction_data = {
-        options,
+        options: effectiveOptions,
         correct_index: correctOption
       };
-    } else if (type === 'Multiple Answers') {
-      configuration.interaction_data = {
-        options,
-        correct_indices: correctOptions,
-      };
-    } else if (type === 'Multiple Dropdowns') {
-      configuration.interaction_data = {
-        options,
-      };
     } else if (type === 'Matching') {
+      const normalizedLeftItems = withReindexedMatchingIds(matchingLeftItems, 'L').map((item) => ({
+        id: item.id,
+        text: String(item.text || '').trim(),
+        image_url: item.image_url || null,
+      }));
+      const normalizedRightOptions = withReindexedMatchingIds(matchingRightOptions, 'R').map((item) => ({
+        id: item.id,
+        text: String(item.text || '').trim(),
+        image_url: item.image_url || null,
+      }));
+
+      const normalizedCorrectMap = {};
+      normalizedLeftItems.forEach((leftItem, index) => {
+        const mappedId = String(matchingCorrectMap[leftItem.id] || '').trim();
+        const fallbackRightId = normalizedRightOptions[index]?.id || normalizedRightOptions[0]?.id || '';
+        normalizedCorrectMap[leftItem.id] = normalizedRightOptions.some((option) => option.id === mappedId)
+          ? mappedId
+          : fallbackRightId;
+      });
+
       configuration.interaction_data = {
-        premises: parseLines(matchingPromptsText),
-        targets: parseLines(matchingTargetsText),
-      };
-    } else if (type === 'Formula Question') {
-      configuration.interaction_data = {
-        formula,
-        variables: {
-          x: { min: parseFloat(variableMin), max: parseFloat(variableMax) }
-        }
+        left_items: normalizedLeftItems,
+        right_options: normalizedRightOptions,
+        correct_mapping: normalizedCorrectMap,
       };
     }
 
@@ -297,7 +571,7 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
             rows="3" 
             value={questionText} 
             onChange={(e) => setQuestionText(e.target.value)} 
-            placeholder={type === 'Formula Question' ? "What is the result when evaluating $$f(x) = x^2 + 5$$?" : "Type the question students should answer..."} 
+            placeholder="Type the question students should answer..." 
             className="w-full p-4 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm font-medium resize-none placeholder-slate-600 transition-all" 
             required 
           />
@@ -370,30 +644,49 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
             <span className="block text-xs font-semibold text-indigo-400 tracking-wider">CHOICE CONFIGURATION PANEL</span>
             {options.map((option, index) => (
               <div key={index} className="flex items-center gap-4 group">
-                {type === 'Multiple Answers' ? (
-                  <input
-                    type="checkbox"
-                    checked={correctOptions.includes(index)}
-                    onChange={() => toggleCorrectOption(index)}
-                    className="w-4 h-4 text-indigo-600 border-slate-800 focus:ring-offset-slate-950 focus:ring-indigo-500 cursor-pointer bg-slate-900 rounded"
-                  />
-                ) : (
-                  <input
-                    type="radio"
-                    name="correct_choice"
-                    checked={correctOption === index}
-                    onChange={() => setCorrectOption(index)}
-                    className="w-4 h-4 text-indigo-600 border-slate-800 focus:ring-offset-slate-950 focus:ring-indigo-500 cursor-pointer bg-slate-900"
-                  />
-                )}
+                <input
+                  type="radio"
+                  name="correct_choice"
+                  checked={correctOption === index}
+                  onChange={() => setCorrectOption(index)}
+                  className="w-4 h-4 text-indigo-600 border-slate-800 focus:ring-offset-slate-950 focus:ring-indigo-500 cursor-pointer bg-slate-900"
+                />
                 <input 
-                  type="text" 
-                  value={option} 
-                  onChange={(e) => handleOptionChange(index, e.target.value)} 
-                  placeholder={`Choice Verification Index ${String.fromCharCode(65 + index)}`} 
+                  type="text"
+                  value={option.text}
+                  onChange={(e) => handleOptionTextChange(index, e.target.value)}
+                  placeholder={`Choice ${option.id} text (supports LaTeX like $x^2$ or $$\\int_0^1 x dx$$)`}
                   className="flex-1 px-4 py-2.5 bg-slate-900 border border-slate-800 text-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-500 placeholder-slate-600 transition-all" 
                   required 
                 />
+                <label className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200 cursor-pointer hover:border-cyan-400/60 hover:text-cyan-200 transition-all">
+                  {uploadingChoiceIndex === index ? 'Uploading...' : 'Upload Diagram'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadingChoiceIndex !== null}
+                    onChange={async (event) => {
+                      const selectedFile = event.target.files?.[0];
+                      if (selectedFile) {
+                        await uploadChoiceImage(selectedFile, index);
+                      }
+                    }}
+                  />
+                </label>
+                {option.image_url ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOptions((prev) => prev.map((item, itemIndex) => (
+                        itemIndex === index ? { ...item, image_url: null } : item
+                      )));
+                    }}
+                    className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-300 transition-all hover:bg-rose-500/20"
+                  >
+                    Remove Image
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => handleRemoveOption(index)}
@@ -406,22 +699,218 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
                 </button>
               </div>
             ))}
+            {options.some((option) => option.image_url) ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {options.map((option, index) => (
+                  option.image_url ? (
+                    <div key={`preview-${index}`} className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Choice {option.id} Diagram</p>
+                      <img
+                        src={option.image_url}
+                        alt={`Choice ${option.id} visual`}
+                        className="mx-auto max-h-28 w-full rounded-lg border border-slate-700 object-contain"
+                      />
+                    </div>
+                  ) : null
+                ))}
+              </div>
+            ) : null}
+            {choiceImageError ? <p className="text-xs text-rose-300">{choiceImageError}</p> : null}
             <button 
               type="button" 
               onClick={handleAddOption} 
               className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors inline-flex items-center gap-1 mt-1"
             >
-              + Append Dynamic Choice Variant
+              + Add another choice
             </button>
-            {type === 'Multiple Dropdowns' ? (
-              <p className="text-[11px] text-slate-500">Use bracket tokens in prompt text like [blank1], [blank2]. These options populate each dropdown.</p>
-            ) : null}
+          </div>
+          )}
+
+          {type === 'Matching' && (
+          <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-5 shadow-inner">
+            <div>
+              <span className="block text-xs font-semibold text-cyan-300 tracking-wider">MATCHING PAIR BUILDER</span>
+              <p className="mt-1 text-xs text-slate-400">Build left prompts and right answer options. Right options can include extra distractors.</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">Left Items</h4>
+                  <button
+                    type="button"
+                    onClick={addMatchingLeftItem}
+                    className="rounded-lg border border-cyan-400/40 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-200 transition-all hover:bg-cyan-500/20"
+                  >
+                    + Add Left Item
+                  </button>
+                </div>
+
+                {matchingLeftItems.map((item, index) => (
+                  <div key={`left-${item.id}-${index}`} className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-slate-300">{item.id}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeMatchingLeftItem(index)}
+                        disabled={matchingLeftItems.length <= 2}
+                        className="text-xs text-rose-300 disabled:text-slate-600 disabled:cursor-not-allowed"
+                      >
+                        Delete
+                      </button>
+                    </div>
+
+                    <input
+                      type="text"
+                      value={item.text}
+                      onChange={(event) => handleMatchingTextChange({ side: 'left', index, value: event.target.value })}
+                      placeholder="Left prompt text (LaTeX supported)"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                      required
+                    />
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 cursor-pointer hover:border-cyan-400/60 hover:text-cyan-200 transition-all">
+                        {uploadingMatchingItem === `left-${index}` ? 'Uploading...' : 'Upload Diagram'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={Boolean(uploadingMatchingItem)}
+                          onChange={async (event) => {
+                            const selectedFile = event.target.files?.[0];
+                            if (selectedFile) {
+                              await uploadMatchingImage({ file: selectedFile, side: 'left', itemIndex: index });
+                            }
+                          }}
+                        />
+                      </label>
+
+                      {item.image_url ? (
+                        <button
+                          type="button"
+                          onClick={() => setMatchingLeftItems((prev) => prev.map((leftItem, leftIndex) => (
+                            leftIndex === index ? { ...leftItem, image_url: null } : leftItem
+                          )))}
+                          className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-all hover:bg-rose-500/20"
+                        >
+                          Remove Image
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {item.image_url ? (
+                      <div className="rounded-lg border border-slate-700 bg-slate-950 p-2">
+                        <img src={item.image_url} alt={`${item.id} diagram`} className="mx-auto max-h-24 w-full object-contain" />
+                      </div>
+                    ) : null}
+
+                    <div>
+                      <label className="mb-1 block text-[10px] uppercase tracking-[0.16em] text-slate-400">Correct Match</label>
+                      <select
+                        value={matchingCorrectMap[item.id] || ''}
+                        onChange={(event) => {
+                          const selectedRightId = event.target.value;
+                          setMatchingCorrectMap((prev) => ({
+                            ...prev,
+                            [item.id]: selectedRightId,
+                          }));
+                        }}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                      >
+                        {matchingRightOptions.map((option) => (
+                          <option key={`map-${item.id}-${option.id}`} value={option.id}>
+                            {option.id}: {option.text || 'Untitled option'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">Answer Options (with Distractors)</h4>
+                  <button
+                    type="button"
+                    onClick={addMatchingRightOption}
+                    className="rounded-lg border border-indigo-400/40 bg-indigo-500/10 px-2.5 py-1 text-[11px] font-semibold text-indigo-200 transition-all hover:bg-indigo-500/20"
+                  >
+                    + Add Option / Distractor
+                  </button>
+                </div>
+
+                {matchingRightOptions.map((item, index) => (
+                  <div key={`right-${item.id}-${index}`} className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-slate-300">{item.id}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeMatchingRightOption(index)}
+                        disabled={matchingRightOptions.length <= Math.max(2, matchingLeftItems.length)}
+                        className="text-xs text-rose-300 disabled:text-slate-600 disabled:cursor-not-allowed"
+                      >
+                        Delete
+                      </button>
+                    </div>
+
+                    <input
+                      type="text"
+                      value={item.text}
+                      onChange={(event) => handleMatchingTextChange({ side: 'right', index, value: event.target.value })}
+                      placeholder="Right option text (LaTeX supported)"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                      required
+                    />
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 cursor-pointer hover:border-cyan-400/60 hover:text-cyan-200 transition-all">
+                        {uploadingMatchingItem === `right-${index}` ? 'Uploading...' : 'Upload Diagram'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={Boolean(uploadingMatchingItem)}
+                          onChange={async (event) => {
+                            const selectedFile = event.target.files?.[0];
+                            if (selectedFile) {
+                              await uploadMatchingImage({ file: selectedFile, side: 'right', itemIndex: index });
+                            }
+                          }}
+                        />
+                      </label>
+
+                      {item.image_url ? (
+                        <button
+                          type="button"
+                          onClick={() => setMatchingRightOptions((prev) => prev.map((rightItem, rightIndex) => (
+                            rightIndex === index ? { ...rightItem, image_url: null } : rightItem
+                          )))}
+                          className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-all hover:bg-rose-500/20"
+                        >
+                          Remove Image
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {item.image_url ? (
+                      <div className="rounded-lg border border-slate-700 bg-slate-950 p-2">
+                        <img src={item.image_url} alt={`${item.id} diagram`} className="mx-auto max-h-24 w-full object-contain" />
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {matchingImageError ? <p className="text-xs text-rose-300">{matchingImageError}</p> : null}
           </div>
           )}
 
           {type === 'True/False' && (
           <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
-            <span className="block text-xs font-semibold text-amber-400 tracking-wider">TRUE / FALSE CONSTANT KEY EVALUATION</span>
+            <span className="block text-xs font-semibold text-amber-400 tracking-wider">TRUE / FALSE ANSWER</span>
             {options.slice(0, 2).map((option, index) => (
               <div key={index} className="flex items-center gap-4 py-1.5 px-4 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all">
                 <input 
@@ -431,76 +920,12 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
                   onChange={() => setCorrectOption(index)} 
                   className="w-4 h-4 text-amber-500 border-slate-800 bg-slate-900" 
                 />
-                <span className="text-sm font-medium text-slate-300">{option}</span>
+                <span className="text-sm font-medium text-slate-300">{option.text || option.id}</span>
               </div>
             ))}
           </div>
           )}
 
-          {type === 'Matching' && (
-          <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
-            <span className="block text-xs font-semibold text-cyan-400 tracking-wider">MATCHING PAIR CONFIGURATION</span>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-medium text-slate-400 mb-2 tracking-wide">LEFT COLUMN PREMISES (ONE PER LINE)</label>
-                <textarea
-                  rows="5"
-                  value={matchingPromptsText}
-                  onChange={(e) => setMatchingPromptsText(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-900 border border-slate-800 text-slate-100 rounded-xl text-sm font-medium resize-none focus:outline-none"
-                  placeholder="Apple\nMercury\nPacific"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-slate-400 mb-2 tracking-wide">RIGHT COLUMN TARGETS (ONE PER LINE)</label>
-                <textarea
-                  rows="5"
-                  value={matchingTargetsText}
-                  onChange={(e) => setMatchingTargetsText(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-900 border border-slate-800 text-slate-100 rounded-xl text-sm font-medium resize-none focus:outline-none"
-                  placeholder="Fruit\nPlanet\nOcean"
-                />
-              </div>
-            </div>
-          </div>
-          )}
-
-          {type === 'Formula Question' && (
-          <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
-            <span className="block text-xs font-semibold text-emerald-400 tracking-wider">VARIABLE EVALUATION PARSER CONFIGURATION</span>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-medium text-slate-400 mb-2 tracking-wide">VARIABLE x INCLUSIVE MIN BOUND</label>
-                <input 
-                  type="number" 
-                  value={variableMin} 
-                  onChange={(e) => setVariableMin(e.target.value)} 
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 text-slate-100 rounded-xl text-sm font-medium focus:outline-none" 
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-slate-400 mb-2 tracking-wide">VARIABLE x INCLUSIVE MAX BOUND</label>
-                <input 
-                  type="number" 
-                  value={variableMax} 
-                  onChange={(e) => setVariableMax(e.target.value)} 
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 text-slate-100 rounded-xl text-sm font-medium focus:outline-none" 
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-[10px] font-medium text-slate-400 mb-2 tracking-wide">ALGEBRAIC SYNTAX FORMULA STRING (EVALUATION RULE)</label>
-              <input 
-                type="text" 
-                value={formula} 
-                onChange={(e) => setFormula(e.target.value)} 
-                placeholder="e.g., x * 5 + 12" 
-                className="w-full px-4 py-3 bg-slate-900 border border-slate-800 text-slate-100 font-mono text-sm rounded-xl focus:outline-none focus:border-emerald-500 placeholder-slate-600 transition-all" 
-                required 
-              />
-            </div>
-          </div>
-          )}
 
           <div className="flex flex-col gap-3 pt-2 md:flex-row md:justify-end">
             {editingQuestionIndex !== null ? (

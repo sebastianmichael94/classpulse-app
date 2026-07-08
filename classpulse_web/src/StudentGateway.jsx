@@ -76,7 +76,11 @@ export default function StudentGateway({ onQuizLoaded }) {
       });
 
       if (response?.data) {
-        onQuizLoaded?.({ quiz: response.data, studentName: normalizedName });
+        const loadResult = onQuizLoaded?.({ quiz: response.data, studentName: normalizedName });
+        if (loadResult?.alreadySubmitted) {
+          navigate('/scorecard');
+          return;
+        }
         navigate(`/player/${response.data.id}`);
       }
     } catch (err) {

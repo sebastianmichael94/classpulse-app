@@ -30,6 +30,18 @@ from .serializers import (
     RegisterSerializer,
     LoginSerializer,
 )
+from .choice_schema import (
+    build_choice_texts,
+    choice_badge_for_index,
+    find_choice_index,
+    normalize_choice_list,
+    normalize_selected_choice_indices,
+)
+from .matching_schema import (
+    normalize_correct_mapping,
+    normalize_matching_answer,
+    normalize_matching_items,
+)
 
 
 def read_local_env_value(key_name):
@@ -148,11 +160,11 @@ STOP_WORDS = {
 QUESTION_TYPE_ALIAS_MAP = {
     'multiple_choice_question': 'Multiple Choice',
     'true_false_question': 'True/False',
+    'matching_question': 'Matching',
     'fill_in_the_blank_question': 'Fill In the Blank',
     'one_word_question': 'Fill In the Blank',
     'short_answer_question': 'Short Answer',
     'short_answer': 'Short Answer',
-    'formula_question': 'Formula Question',
     'essay_question': 'Essay Question',
 }
 
@@ -178,18 +190,14 @@ def index_to_choice_label(index_value):
 
 TEXT_BASED_TYPES = {
     'Essay Question',
+    'Short Answer',
     'Fill In the Blank',
-    'Fill In Multiple Blanks',
-    'Multiple Dropdowns',
-    'File Upload Question',
 }
 
 SHORT_TEXT_TYPES = {
     'Essay Question',
     'Short Answer',
     'Fill In the Blank',
-    'Fill In Multiple Blanks',
-    'Multiple Dropdowns',
 }
 
 ESSAY_ANALYTICS_TYPES = {
@@ -201,8 +209,6 @@ TEXT_ANALYTICS_TYPES = {
     'Essay Question',
     'Short Answer',
     'Fill In the Blank',
-    'Fill In Multiple Blanks',
-    'Multiple Dropdowns',
 }
 
 
@@ -306,7 +312,7 @@ def normalize_security_answer(raw_value):
 
 def enforce_quiz_runtime_gate(quiz):
     if quiz.status == 'READY':
-        return False, "This quiz session hasn't started yet. Please wait for your professor to activate the portal."
+        return False, "This quiz has not started yet. Please wait for your instructor to start it."
 
     if quiz.status == 'ACTIVE':
         if quiz.started_at:
@@ -314,13 +320,13 @@ def enforce_quiz_runtime_gate(quiz):
             if elapsed_seconds > (quiz.duration_minutes * 60):
                 quiz.status = 'COMPLETED'
                 quiz.save(update_fields=['status'])
-                return False, 'This evaluation session has concluded.'
+                return False, 'This quiz is closed.'
         return True, ''
 
     if quiz.status == 'COMPLETED':
-        return False, 'This evaluation session has concluded.'
+        return False, 'This quiz is closed.'
 
-    return False, 'This evaluation session is not currently available.'
+    return False, 'This quiz is not available right now.'
 
 
 def build_student_context(quiz):
@@ -980,7 +986,7 @@ CRITICAL INSTRUCTIONS:
 1. ADAPT TO THE DATA TYPE: Inspect the question title and the student answers. If the question is an emotional check-in, feedback loop, or open-ended sentiment check (e.g., terms like "mood", "feeling", "how are you"), do NOT treat responses as right or wrong. Analyze the emotional distribution (e.g., 75% positive/exuberant/joyful, 25% sad) and summarize the collective energy of the room.
 2. IF IT IS AN ACADEMIC QUIZ: Only then evaluate conceptual alignment, identifying genuine misconceptions or surface-level knowledge gaps.
 3. NEVER treat literal strings or individual adjectives as technical concepts unless they explicitly match an engineering or factual domain.
-4. DO NOT reference developer jargon or placeholder modes. Speak directly to the professor as an elite teaching assistant.
+4. DO NOT reference developer jargon or placeholder modes. Speak directly to the instructor as an elite teaching assistant.
 
 Strictly format your response into these exact Markdown headers:
 📊 Submission Breakdown:
@@ -990,13 +996,13 @@ Strictly format your response into these exact Markdown headers:
 [Provide a highly tactical, 1-2 sentence recommendation for the next minute of class based on the data]
 
 🎯 Suggested Follow-Up Question:
-[Provide a contextually relevant question for the professor to ask next]
+[Provide a contextually relevant question for the instructor to ask next]
 """
 
 
 CLAUDE_CONVERSATIONAL_SYSTEM_PROMPT = """
 You are a direct, conversational AI Assistant helping Dr. Reshma Menon interpret live lecture feedback metrics for ClassPulse.
-Analyze the student response text data provided to you, and answer the professor's explicit query directly, naturally, and professionally without using rigid templates, forced headers, or pre-formatted choice options. Just answer her question directly using the data context.
+Analyze the student response text data provided to you, and answer the instructor's explicit query directly, naturally, and professionally without using rigid templates, forced headers, or pre-formatted choice options. Just answer her question directly using the data context.
 """
 
 
@@ -1044,7 +1050,7 @@ def generate_claude_summary_response(user_prompt, essay_answers, active_question
     ]
 
     prompt_content = (
-        "Use the following classroom analysis payload and answer the professor with the required markdown headers.\n"
+        "Use the following classroom analysis payload and answer the instructor with the required markdown headers.\n"
         f"Payload: {json.dumps(claude_payload, ensure_ascii=False)}"
     )
 
@@ -1102,7 +1108,7 @@ def generate_claude_chat_response(user_prompt, essay_answers, active_question_te
             {
                 "role": "user",
                 "content": (
-                    f"Professor Query:\n{direct_prompt}\n\n"
+                    f"Instructor Query:\n{direct_prompt}\n\n"
                     f"ClassPulse Context:\n{context_block}"
                 ),
             }
@@ -1285,7 +1291,7 @@ class ProfessorQuizHistoryView(APIView):
     def get(self, request):
         role = getattr(getattr(request.user, 'profile', None), 'role', None)
         if role != 'professor':
-            return Response({'error': 'Professor access required.'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'Instructor access required.'}, status=status.HTTP_403_FORBIDDEN)
 
         quizzes = Quiz.objects.filter(created_by=request.user).order_by('-created_at')
         if not quizzes.exists():
@@ -1499,6 +1505,7 @@ class LiveAnalyticsView(APIView):
                 'question_title': question.question_title,
                 'question_text': question.question_text,
                 'question_type': question.question_type,
+                'interaction_data': question.interaction_data if isinstance(question.interaction_data, dict) else {},
             }
             for index, question in enumerate(quiz.questions.all())
         ]
@@ -1533,7 +1540,7 @@ class LiveAnalyticsView(APIView):
         response_type_breakdown = {
             'multiple_choice': 0,
             'essay': 0,
-            'numerical': 0,
+            'matching': 0,
             'other': 0,
         }
 
@@ -1569,12 +1576,12 @@ class LiveAnalyticsView(APIView):
                         continue
 
                     question_type = normalize_question_type(answer.get('question_type'))
-                    if question_type in {'Multiple Choice', 'True/False', 'Multiple Answers'}:
+                    if question_type in {'Multiple Choice', 'True/False'}:
                         response_type_breakdown['multiple_choice'] += 1
-                    elif question_type in {'Essay Question', 'Short Answer', 'Fill In the Blank', 'Fill In Multiple Blanks', 'Multiple Dropdowns'}:
+                    elif question_type in {'Essay Question', 'Short Answer', 'Fill In the Blank'}:
                         response_type_breakdown['essay'] += 1
-                    elif question_type in {'Numerical Answer', 'Formula Question'}:
-                        response_type_breakdown['numerical'] += 1
+                    elif question_type == 'Matching':
+                        response_type_breakdown['matching'] += 1
                     else:
                         response_type_breakdown['other'] += 1
 
@@ -1699,22 +1706,40 @@ class QuestionImageUploadView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        image_file = request.FILES.get('image')
-        if not image_file:
-            return Response({'error': 'image file is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        return upload_image_asset(request, directory_name='question_images', response_key='question_image_url')
 
-        content_type = str(image_file.content_type or '').lower()
-        if not content_type.startswith('image/'):
-            return Response({'error': 'Only image uploads are supported.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        extension = os.path.splitext(image_file.name)[1] or '.png'
-        storage_path = f"question_images/{uuid.uuid4().hex}{extension}"
-        stored_path = default_storage.save(storage_path, image_file)
-        image_url = default_storage.url(stored_path)
+class ChoiceImageUploadView(APIView):
+    permission_classes = [AllowAny]
 
-        return Response({
-            'question_image_url': request.build_absolute_uri(image_url),
-        }, status=status.HTTP_201_CREATED)
+    def post(self, request):
+        return upload_image_asset(request, directory_name='choice_images', response_key='image_url')
+
+
+def upload_image_asset(request, directory_name='question_images', response_key='image_url'):
+    image_file = request.FILES.get('image')
+    if not image_file:
+        return Response({'error': 'image file is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    content_type = str(image_file.content_type or '').lower()
+    if not content_type.startswith('image/'):
+        return Response({'error': 'Only image uploads are supported.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    max_bytes = 10 * 1024 * 1024
+    file_size = int(getattr(image_file, 'size', 0) or 0)
+    if file_size > max_bytes:
+        return Response({'error': 'Image must be 10MB or smaller.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    extension = os.path.splitext(image_file.name)[1] or '.png'
+    storage_path = f"{directory_name}/{uuid.uuid4().hex}{extension}"
+    stored_path = default_storage.save(storage_path, image_file)
+    image_url = default_storage.url(stored_path)
+    absolute_image_url = request.build_absolute_uri(image_url)
+
+    return Response({
+        response_key: absolute_image_url,
+        'image_url': absolute_image_url,
+    }, status=status.HTTP_201_CREATED)
 
 
 class QuestionPeerResponsesView(APIView):
@@ -2228,47 +2253,67 @@ class QuizViewSet(viewsets.ModelViewSet):
                 question_type = normalize_question_type(
                     answer_item.get('question_type') or (question.question_type if question else None)
                 )
-                question_options = []
+                question_choices = []
+                matching_left_items = []
+                matching_right_options = []
                 if question and isinstance(question.interaction_data, dict):
-                    question_options = question.interaction_data.get('options') or []
+                    question_choices = normalize_choice_list(
+                        question.interaction_data.get('options'),
+                        default_true_false=question_type == 'True/False',
+                    )
+                    matching_left_items = normalize_matching_items(question.interaction_data.get('left_items'), prefix='L')
+                    matching_right_options = normalize_matching_items(question.interaction_data.get('right_options'), prefix='R')
+                question_option_texts = build_choice_texts(question_choices)
 
                 answer_id = None
                 answer_text = ''
 
-                if question_type in {'Multiple Choice', 'True/False', 'Multiple Answers'}:
-                    if question_type == 'True/False' and not question_options:
-                        question_options = ['True', 'False']
-
-                    def resolve_option_item(raw_item):
-                        if isinstance(raw_item, str):
-                            trimmed = raw_item.strip()
-                            if trimmed in question_options:
-                                option_index = question_options.index(trimmed)
-                                return str(option_index), trimmed
-                            if trimmed.isdigit():
-                                numeric_index = int(trimmed)
-                                if 0 <= numeric_index < len(question_options):
-                                    return str(numeric_index), str(question_options[numeric_index]).strip()
-                            return trimmed, trimmed
-
-                        if isinstance(raw_item, (int, float)):
-                            numeric_index = int(raw_item)
-                            if 0 <= numeric_index < len(question_options):
-                                return str(numeric_index), str(question_options[numeric_index]).strip()
-                            return str(numeric_index), str(numeric_index)
-
-                        fallback = str(raw_item or '').strip()
-                        return fallback, fallback
-
+                if question_type in {'Multiple Choice', 'True/False'}:
                     if isinstance(answer_value, list):
-                        resolved_pairs = [resolve_option_item(item) for item in answer_value]
-                        answer_id = [pair[0] for pair in resolved_pairs if str(pair[0]).strip()]
-                        labels = [pair[1] for pair in resolved_pairs if str(pair[1]).strip()]
-                        answer_text = ', '.join(labels)
+                        selected_indices = normalize_selected_choice_indices(answer_value, question_choices)
+                        answer_id = [
+                            str((question_choices[idx] or {}).get('id') or '').strip()
+                            for idx in selected_indices
+                            if 0 <= idx < len(question_choices)
+                        ]
+                        labels = [
+                            question_option_texts[idx]
+                            for idx in selected_indices
+                            if 0 <= idx < len(question_option_texts)
+                        ]
+                        answer_text = ', '.join([label for label in labels if str(label).strip()])
                     else:
-                        resolved_id, resolved_text = resolve_option_item(answer_value)
-                        answer_id = resolved_id
-                        answer_text = resolved_text
+                        selected_index = find_choice_index(answer_value, question_choices)
+                        if isinstance(selected_index, int) and 0 <= selected_index < len(question_choices):
+                            answer_id = str((question_choices[selected_index] or {}).get('id') or '').strip() or str(selected_index)
+                            answer_text = str(question_option_texts[selected_index] or '').strip()
+                        else:
+                            fallback_text = str(answer_value or '').strip()
+                            answer_id = fallback_text if fallback_text else None
+                            answer_text = fallback_text
+                elif question_type == 'Matching':
+                    normalized_answer = normalize_matching_answer(answer_value, matching_left_items, matching_right_options)
+                    answer_id = normalized_answer
+                    right_by_id = {
+                        str((item or {}).get('id') or '').strip(): item
+                        for item in matching_right_options
+                    }
+                    segments = []
+                    for left_item in matching_left_items:
+                        left_id = str((left_item or {}).get('id') or '').strip()
+                        if not left_id:
+                            continue
+
+                        selected_right_id = str(normalized_answer.get(left_id) or '').strip()
+                        if not selected_right_id:
+                            segments.append(f"{left_id} -> (unanswered)")
+                            continue
+
+                        selected_right = right_by_id.get(selected_right_id, {})
+                        selected_right_text = str(selected_right.get('text') or '').strip() or selected_right_id
+                        segments.append(f"{left_id} -> {selected_right_id} ({selected_right_text})")
+
+                    answer_text = ' | '.join(segments)
                 elif isinstance(answer_value, dict):
                     answer_id = None
                     answer_text = ' | '.join([
@@ -2295,34 +2340,23 @@ class QuizViewSet(viewsets.ModelViewSet):
                     'answer_text': answer_text,
                 })
 
-                if choice_badge == 'N/A' and question_type in {'Multiple Choice', 'True/False', 'Multiple Answers'}:
-                    options = question_options
-
+                if choice_badge == 'N/A' and question_type in {'Multiple Choice', 'True/False'}:
                     if isinstance(answer_value, list):
-                        labels = []
-                        for item in answer_value:
-                            option_index = options.index(item) if item in options else None
-                            label = index_to_choice_label(option_index) if option_index is not None else None
-                            if label:
-                                labels.append(label)
+                        selected_indices = normalize_selected_choice_indices(answer_value, question_choices)
+                        labels = [
+                            choice_badge_for_index(question_choices, selected_index)
+                            for selected_index in selected_indices
+                        ]
+                        labels = [label for label in labels if str(label or '').strip()]
                         if labels:
                             choice_badge = ','.join(labels)
-                    elif isinstance(answer_value, str):
-                        option_index = options.index(answer_value) if answer_value in options else None
-                        if option_index is not None:
-                            label = index_to_choice_label(option_index)
-                            if label:
-                                choice_badge = label
-                        elif answer_value.isdigit():
-                            label = index_to_choice_label(answer_value)
-                            if label:
-                                choice_badge = label
-                    elif isinstance(answer_value, (int, float)):
-                        label = index_to_choice_label(answer_value)
+                    else:
+                        selected_index = find_choice_index(answer_value, question_choices)
+                        label = choice_badge_for_index(question_choices, selected_index) if isinstance(selected_index, int) else None
                         if label:
                             choice_badge = label
 
-                if question_type in {'Essay Question', 'Fill In the Blank', 'Fill In Multiple Blanks', 'Multiple Dropdowns'}:
+                if question_type in {'Essay Question', 'Short Answer', 'Fill In the Blank'}:
                     if isinstance(answer_value, str) and answer_value.strip():
                         text_fragments.append(answer_value.strip())
                     elif isinstance(answer_value, dict):
@@ -2338,6 +2372,103 @@ class QuizViewSet(viewsets.ModelViewSet):
                 'answers': detailed_answers,
                 'response_text': '\n\n'.join(text_fragments) if text_fragments else 'No long-form textual response captured for this submission.',
             })
+
+        matching_summary = None
+        if selected_question and normalize_question_type(selected_question.question_type) == 'Matching':
+            interaction = selected_question.interaction_data if isinstance(selected_question.interaction_data, dict) else {}
+            left_items = normalize_matching_items(interaction.get('left_items'), prefix='L')
+            right_options = normalize_matching_items(interaction.get('right_options'), prefix='R')
+            correct_mapping = normalize_correct_mapping(
+                interaction.get('correct_mapping'),
+                left_items,
+                right_options,
+            )
+            right_by_id = {
+                str((option or {}).get('id') or '').strip(): option
+                for option in right_options
+            }
+
+            rows = []
+            for left_item in left_items:
+                left_id = str((left_item or {}).get('id') or '').strip()
+                if not left_id:
+                    continue
+
+                option_counts = {
+                    str((option or {}).get('id') or '').strip(): 0
+                    for option in right_options
+                    if str((option or {}).get('id') or '').strip()
+                }
+                answered_count = 0
+                correct_count = 0
+                correct_right_id = str(correct_mapping.get(left_id) or '').strip()
+
+                for submission in submissions:
+                    answer_items = submission.answers if isinstance(submission.answers, list) else []
+                    answer_item = next(
+                        (
+                            item for item in answer_items
+                            if isinstance(item, dict) and answer_matches_question_id(item, selected_question.id)
+                        ),
+                        None,
+                    )
+                    if not answer_item:
+                        continue
+
+                    submission_mapping = normalize_matching_answer(
+                        answer_item.get('answer'),
+                        left_items,
+                        right_options,
+                    )
+                    selected_right_id = str(submission_mapping.get(left_id) or '').strip()
+                    if not selected_right_id:
+                        continue
+
+                    answered_count += 1
+                    if selected_right_id in option_counts:
+                        option_counts[selected_right_id] += 1
+                    if correct_right_id and selected_right_id == correct_right_id:
+                        correct_count += 1
+
+                selection_breakdown = []
+                for right_option in right_options:
+                    right_id = str((right_option or {}).get('id') or '').strip()
+                    if not right_id:
+                        continue
+
+                    count = int(option_counts.get(right_id, 0))
+                    percentage = (count / total_submissions * 100) if total_submissions > 0 else 0.0
+                    selection_breakdown.append({
+                        'right_id': right_id,
+                        'text': str((right_option or {}).get('text') or '').strip(),
+                        'image_url': (right_option or {}).get('image_url'),
+                        'count': count,
+                        'percentage': percentage,
+                        'is_correct': right_id == correct_right_id,
+                    })
+
+                selection_breakdown.sort(key=lambda item: item['count'], reverse=True)
+
+                correct_percentage = (correct_count / total_submissions * 100) if total_submissions > 0 else 0.0
+                rows.append({
+                    'left_id': left_id,
+                    'left_text': str((left_item or {}).get('text') or '').strip(),
+                    'left_image_url': (left_item or {}).get('image_url'),
+                    'correct_right_id': correct_right_id,
+                    'correct_right_text': str((right_by_id.get(correct_right_id, {}) or {}).get('text') or '').strip(),
+                    'answered_count': answered_count,
+                    'correct_count': correct_count,
+                    'correct_percentage': correct_percentage,
+                    'selection_breakdown': selection_breakdown,
+                })
+
+            matching_summary = {
+                'left_items': left_items,
+                'right_options': right_options,
+                'correct_mapping': correct_mapping,
+                'rows': rows,
+                'total_submissions': total_submissions,
+            }
 
         prompt_history_queryset = quiz.custom_prompts.all()
         if question_id:
@@ -2381,6 +2512,7 @@ class QuizViewSet(viewsets.ModelViewSet):
                 'question_title': question.question_title,
                 'question_text': question.question_text,
                 'question_type': question.question_type,
+                'interaction_data': question.interaction_data if isinstance(question.interaction_data, dict) else {},
             }
             for index, question in enumerate(quiz.questions.all())
         ]
@@ -2420,6 +2552,7 @@ class QuizViewSet(viewsets.ModelViewSet):
             'most_popular_gists': most_popular_gists,
             'gist_list': most_popular_gists,
             'individual_submissions': individual_submissions,
+            'matching_summary': matching_summary,
             'custom_prompt_history': prompt_history,
             'top_voted_answers': top_voted_answers,
         }
@@ -2438,6 +2571,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         payload = request.data.copy()
         pin = extract_access_pin(payload)
         quiz_id = payload.get('quiz')
+        normalized_student_name = str(payload.get('student_name') or '').strip()
         quiz = None
 
         if quiz_id:
@@ -2453,6 +2587,20 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             can_submit, gate_message = enforce_quiz_runtime_gate(quiz)
             if not can_submit:
                 return Response({'error': gate_message}, status=status.HTTP_403_FORBIDDEN)
+
+        if normalized_student_name:
+            payload['student_name'] = normalized_student_name
+
+        if quiz and normalized_student_name:
+            already_submitted = Submission.objects.filter(
+                quiz=quiz,
+                student_name__iexact=normalized_student_name,
+            ).exists()
+            if already_submitted:
+                return Response(
+                    {'error': 'Retakes are disabled. You have already submitted this quiz.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         serializer = self.get_serializer(data=payload)
         serializer.is_valid(raise_exception=True)
@@ -2500,7 +2648,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         gradable_question_ids = [
             question_id
             for question_id, question in questions.items()
-            if normalize_question_type(question.question_type) != 'Text (no question)'
+            if normalize_question_type(question.question_type) in {'Multiple Choice', 'True/False', 'Matching', 'Essay Question', 'Short Answer', 'Fill In the Blank'}
         ]
         score = 0
         total_possible = len(gradable_question_ids)
@@ -2519,68 +2667,68 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             interaction = question.interaction_data or {}
 
             if question_type == 'Multiple Choice':
+                choices = normalize_choice_list(interaction.get('options'))
                 correct_index = interaction.get('correct_index')
                 if correct_index is None:
                     correct_index = interaction.get('correct_option')
-                options = interaction.get('options') or []
-                if isinstance(answer_value, (int, float)) and int(answer_value) == int(correct_index):
-                    score += 1
-                elif isinstance(answer_value, str):
-                    if str(answer_value).strip() == str(correct_index).strip():
-                        score += 1
-                    elif isinstance(options, list) and str(answer_value).strip() == str(options[int(correct_index)]).strip():
-                        score += 1
-            elif question_type == 'True/False':
-                correct_index = interaction.get('correct_index')
                 if correct_index is None:
-                    correct_index = interaction.get('correct_option')
-                expected_value = 'True' if int(correct_index) == 0 else 'False' if int(correct_index) == 1 else None
-                if expected_value:
-                    if isinstance(answer_value, bool):
-                        if (answer_value and expected_value == 'True') or (not answer_value and expected_value == 'False'):
-                            score += 1
-                    elif isinstance(answer_value, str):
-                        if answer_value.strip().lower() == expected_value.lower():
-                            score += 1
-                    elif isinstance(answer_value, (int, float)):
-                        if int(answer_value) == int(correct_index):
-                            score += 1
-            elif question_type == 'Multiple Answers':
-                selected_values = answer_value if isinstance(answer_value, list) else []
-                correct_indices = interaction.get('correct_indices') or []
-                options = interaction.get('options') or []
-                expected_values = []
-                for index in correct_indices:
-                    try:
-                        expected_values.append(str(options[int(index)]).strip())
-                    except (TypeError, ValueError, IndexError):
-                        continue
-                if set(map(str, selected_values)) == set(expected_values):
-                    score += 1
-            elif question_type in ['Formula Question', 'Numerical Answer']:
-                variables = interaction.get('variables') or {}
-                try:
-                    numeric_answer = float(answer_value)
-                except (TypeError, ValueError):
-                    numeric_answer = None
+                    correct_index = 0
 
-                if numeric_answer is not None:
-                    for variable_config in variables.values():
-                        if isinstance(variable_config, dict):
-                            min_value = variable_config.get('min')
-                            max_value = variable_config.get('max')
-                            if isinstance(min_value, (int, float)) and isinstance(max_value, (int, float)):
-                                if min_value <= numeric_answer <= max_value:
-                                    score += 1
-                                    break
-            elif question_type in ['Fill In the Blank', 'Fill In Multiple Blanks', 'Multiple Dropdowns', 'Matching']:
+                resolved_correct_index = find_choice_index(correct_index, choices)
+                if resolved_correct_index is None:
+                    try:
+                        numeric_correct_index = int(correct_index)
+                        if 0 <= numeric_correct_index < len(choices):
+                            resolved_correct_index = numeric_correct_index
+                    except (TypeError, ValueError):
+                        resolved_correct_index = None
+
+                selected_index = find_choice_index(answer_value, choices)
+                if selected_index is not None and resolved_correct_index is not None and selected_index == resolved_correct_index:
+                    score += 1
+            elif question_type == 'True/False':
+                choices = normalize_choice_list(interaction.get('options'), default_true_false=True)
+                correct_index = interaction.get('correct_index')
+                if correct_index is None:
+                    correct_index = interaction.get('correct_option')
+                if correct_index is None:
+                    correct_index = 0
+
+                resolved_correct_index = find_choice_index(correct_index, choices)
+                if resolved_correct_index is None:
+                    try:
+                        numeric_correct_index = int(correct_index)
+                        if 0 <= numeric_correct_index < len(choices):
+                            resolved_correct_index = numeric_correct_index
+                    except (TypeError, ValueError):
+                        resolved_correct_index = None
+
+                selected_index = find_choice_index(answer_value, choices)
+
+                if selected_index is None and isinstance(answer_value, bool):
+                    selected_index = 0 if answer_value else 1
+
+                if selected_index is not None and resolved_correct_index is not None and selected_index == resolved_correct_index:
+                    score += 1
+            elif question_type in ['Fill In the Blank']:
                 if answer_value is not None and str(answer_value).strip() != '':
                     score += 1
-            elif question_type in ['Essay Question', 'File Upload Question']:
+            elif question_type in ['Essay Question', 'Short Answer']:
                 if answer_value is not None and str(answer_value).strip() != '':
                     score += 1
-            elif question_type == 'Text (no question)':
-                continue
+            elif question_type == 'Matching':
+                left_items = normalize_matching_items(interaction.get('left_items'), prefix='L')
+                right_options = normalize_matching_items(interaction.get('right_options'), prefix='R')
+                correct_mapping = normalize_correct_mapping(
+                    interaction.get('correct_mapping'),
+                    left_items,
+                    right_options,
+                )
+                submitted_mapping = normalize_matching_answer(answer_value, left_items, right_options)
+
+                left_ids = [str((item or {}).get('id') or '').strip() for item in left_items if str((item or {}).get('id') or '').strip()]
+                if left_ids and all(submitted_mapping.get(left_id) == correct_mapping.get(left_id) for left_id in left_ids):
+                    score += 1
             elif question_type in ['essay_question', 'one_word_question', 'fill_in_the_blank_question']:
                 if answer_value is not None and str(answer_value).strip() != '':
                     score += 1

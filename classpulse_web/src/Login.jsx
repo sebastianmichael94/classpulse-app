@@ -25,7 +25,7 @@ export default function Login() {
     const password = String(credentials.password || '');
 
     if (email.trim().toLowerCase() !== targetEmail || password !== targetPassword) {
-      setError('Access Denied: Invalid administrator credentials.');
+      setError('Wrong email or password.');
       setIsSubmitting(false);
       return;
     }
@@ -77,7 +77,7 @@ export default function Login() {
       <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl">
         <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">ClassPulse Access</p>
         <h1 className="mt-3 text-3xl font-semibold text-white">Welcome back</h1>
-        <p className="mt-2 text-sm text-slate-400">Teacher Portal login. Authorized administrator credentials only.</p>
+        <p className="mt-2 text-sm text-slate-400">Instructor sign in.</p>
 
         <form onSubmit={handleLogin} className="mt-6 space-y-4">
           <input

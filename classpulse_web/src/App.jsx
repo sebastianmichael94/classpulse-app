@@ -25,6 +25,8 @@ import {
 const STUDENT_SESSION_KEY = 'classpulse.activeStudentSession';
 const ACTIVE_QUIZ_KEY = 'classpulse.activeQuizId';
 const ACTIVE_QUIZ_PAYLOAD_KEY = 'classpulse.activeQuizPayload';
+const SUBMISSION_RECEIPTS_KEY = 'classpulse.submissionReceipts';
+const LATEST_SUBMISSION_RECEIPT_KEY = 'classpulse.latestSubmissionReceipt';
 
 setupAxiosAuthInterceptor();
 initializeHttpAuthFromStorage();
@@ -141,7 +143,102 @@ function clearStoredActiveQuizPayload() {
   localStorage.removeItem(ACTIVE_QUIZ_PAYLOAD_KEY);
 }
 
-function ExamRoute({ activeQuiz, studentName, onSubmitSuccess, isSessionHydrating }) {
+function normalizeStudentName(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function buildSubmissionReceiptKey(quizId, studentName) {
+  const normalizedQuizId = String(quizId || '').trim();
+  const normalizedStudent = normalizeStudentName(studentName);
+  if (!normalizedQuizId || !normalizedStudent) {
+    return null;
+  }
+
+  return `${normalizedQuizId}::${normalizedStudent}`;
+}
+
+function readStoredSubmissionReceipts() {
+  try {
+    const rawValue = localStorage.getItem(SUBMISSION_RECEIPTS_KEY);
+    if (!rawValue) {
+      return {};
+    }
+
+    const parsed = JSON.parse(rawValue);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function findStoredSubmissionReceipt(quizId, studentName) {
+  const receiptKey = buildSubmissionReceiptKey(quizId, studentName);
+  if (!receiptKey) {
+    return null;
+  }
+
+  const receipts = readStoredSubmissionReceipts();
+  const receipt = receipts[receiptKey];
+  return receipt && typeof receipt === 'object' ? receipt : null;
+}
+
+function writeStoredSubmissionReceipt(receipt) {
+  const receiptKey = buildSubmissionReceiptKey(receipt?.quiz_id, receipt?.student_name);
+  if (!receiptKey || !receipt?.result) {
+    return;
+  }
+
+  const receipts = readStoredSubmissionReceipts();
+  receipts[receiptKey] = receipt;
+  localStorage.setItem(SUBMISSION_RECEIPTS_KEY, JSON.stringify(receipts));
+}
+
+function readStoredLatestSubmissionReceipt() {
+  try {
+    const rawValue = localStorage.getItem(LATEST_SUBMISSION_RECEIPT_KEY);
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsed = JSON.parse(rawValue);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredLatestSubmissionReceipt(receipt) {
+  if (!receipt?.result) {
+    return;
+  }
+
+  localStorage.setItem(LATEST_SUBMISSION_RECEIPT_KEY, JSON.stringify(receipt));
+}
+
+function buildStoredSubmissionReceipt(result, quiz, fallbackStudentName) {
+  const resolvedQuizId = String(result?.quiz || quiz?.id || '').trim();
+  const resolvedStudentName = String(result?.student_name || fallbackStudentName || '').trim();
+  if (!resolvedQuizId || !resolvedStudentName) {
+    return null;
+  }
+
+  const normalizedResult = {
+    ...result,
+    quiz: resolvedQuizId,
+    student_name: resolvedStudentName,
+    quiz_title: String(result?.quiz_title || quiz?.title || 'Quiz').trim() || 'Quiz',
+    submitted_at: result?.submitted_at || new Date().toISOString(),
+  };
+
+  return {
+    quiz_id: resolvedQuizId,
+    student_name: resolvedStudentName,
+    result: normalizedResult,
+    saved_at: new Date().toISOString(),
+  };
+}
+
+function ExamRoute({ activeQuiz, studentName, onSubmitSuccess, isSessionHydrating, submittedReceipt }) {
   const { quizId } = useParams();
 
   if (isSessionHydrating) {
@@ -150,6 +247,10 @@ function ExamRoute({ activeQuiz, studentName, onSubmitSuccess, isSessionHydratin
 
   if (!activeQuiz || String(activeQuiz?.id) !== String(quizId)) {
     return <Navigate to="/student" replace />;
+  }
+
+  if (submittedReceipt?.result) {
+    return <Navigate to="/scorecard" replace />;
   }
 
   return <ExamPlayer quiz={activeQuiz} studentName={studentName} onSubmitSuccess={onSubmitSuccess} />;
@@ -185,7 +286,7 @@ function AppRoutes() {
   const isProfessor = userRole === 'professor' && Boolean(effectiveToken);
   const [activeQuiz, setActiveQuiz] = useState(() => readStoredActiveQuizPayload());
   const [studentName, setStudentName] = useState('');
-  const [submissionResult, setSubmissionResult] = useState(null);
+  const [submissionResult, setSubmissionResult] = useState(() => readStoredLatestSubmissionReceipt()?.result || null);
   const [isSessionHydrating, setIsSessionHydrating] = useState(true);
   const [quizHeader, setQuizHeader] = useState({ title: '', timeLimit: 15, instructions: '' });
   const [activeQuestionList, setActiveQuestionList] = useState([]);
@@ -194,6 +295,8 @@ function AppRoutes() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
   const [activeTab, setActiveTab] = useState('welcome');
+  const existingSubmissionReceipt = findStoredSubmissionReceipt(activeQuiz?.id, studentName);
+  const scorecardResult = submissionResult || readStoredLatestSubmissionReceipt()?.result;
 
   useEffect(() => {
     const fetchQuizHistory = async () => {
@@ -363,22 +466,34 @@ function AppRoutes() {
 
   const handleQuizLoaded = ({ quiz, studentName: enteredName }) => {
     const normalizedQuiz = normalizeQuizPayload(quiz);
+    const normalizedStudentName = String(enteredName || '').trim();
+    const existingReceipt = findStoredSubmissionReceipt(normalizedQuiz?.id, normalizedStudentName);
+
     setActiveQuiz(normalizedQuiz);
-    setStudentName(enteredName);
-    writeStoredStudentSession({ quiz: normalizedQuiz, studentName: enteredName });
+    setStudentName(normalizedStudentName);
+
+    if (existingReceipt?.result) {
+      clearStoredStudentSession();
+      setSubmissionResult(existingReceipt.result);
+      writeStoredLatestSubmissionReceipt(existingReceipt);
+      return { alreadySubmitted: true };
+    }
+
+    writeStoredStudentSession({ quiz: normalizedQuiz, studentName: normalizedStudentName });
+    return { alreadySubmitted: false };
   };
 
   const handleSubmissionSuccess = (result) => {
     clearStoredStudentSession();
-    setSubmissionResult(result);
+    const receipt = buildStoredSubmissionReceipt(result, activeQuiz, studentName);
+    if (receipt?.result) {
+      writeStoredSubmissionReceipt(receipt);
+      writeStoredLatestSubmissionReceipt(receipt);
+      setSubmissionResult(receipt.result);
+    } else {
+      setSubmissionResult(result);
+    }
     navigate('/scorecard');
-  };
-
-  const handleReset = () => {
-    clearStoredStudentSession();
-    setActiveQuiz(null);
-    setSubmissionResult(null);
-    setStudentName('');
   };
 
   const handleLiveQuizSessionStateChange = ({ quizId, status, startedAt, durationMinutes }) => {
@@ -636,7 +751,7 @@ function AppRoutes() {
                 onClick={() => setActiveTab('history')}
                 className={`w-full rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'history' ? 'border-cyan-400/30 bg-cyan-500 text-slate-950' : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:text-white hover:bg-slate-900'}`}
               >
-                Hosted Quizzes History
+                Quiz History
               </button>
             </aside>
 
@@ -665,8 +780,8 @@ function AppRoutes() {
                         className="p-6 bg-slate-900/40 border border-slate-800 rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
                       >
                         <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-400">Quick Action</p>
-                        <p className="text-lg font-bold text-slate-200 mt-2">Review Past Analytics</p>
-                        <p className="text-sm text-slate-400 mt-1">Open archived quizzes and relaunch sessions with metrics.</p>
+                        <p className="text-lg font-bold text-slate-200 mt-2">Review Past Results</p>
+                        <p className="text-sm text-slate-400 mt-1">Open past quizzes and relaunch sessions.</p>
                       </button>
                     </div>
                   </section>
@@ -676,8 +791,8 @@ function AppRoutes() {
                   <>
                     <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl">
                       <p className="text-xs font-mono uppercase tracking-[0.3em] text-cyan-400">Live Class Controller</p>
-                      <h1 className="mt-2 text-3xl font-semibold text-white">Professor Control Center</h1>
-                      <p className="mt-2 max-w-2xl text-sm text-slate-400">Use the Quiz Publishing Panel to finalize questions and monitor live classroom analytics as submissions arrive.</p>
+                      <h1 className="mt-2 text-3xl font-semibold text-white">Instructor Control Center</h1>
+                      <p className="mt-2 max-w-2xl text-sm text-slate-400">Finish your quiz and watch live class results here.</p>
                     </div>
                     <QuizHeaderForm onSaveHeader={handleHeaderSave} />
                     <QuizCreator
@@ -732,21 +847,21 @@ function AppRoutes() {
             studentName={studentName}
             onSubmitSuccess={handleSubmissionSuccess}
             isSessionHydrating={isSessionHydrating}
+            submittedReceipt={existingSubmissionReceipt}
           />
         )}
       />
       <Route
         path="/scorecard"
         element={(
-          submissionResult ? (
+          scorecardResult ? (
             <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100 flex items-center justify-center">
               <StudentScorecard
-                score={submissionResult.score}
-                totalPoints={submissionResult.total_possible}
-                studentName={submissionResult.student_name}
-                quizTitle={activeQuiz?.title || 'Quiz'}
-                quizId={submissionResult.quiz || activeQuiz?.id}
-                onResetMock={handleReset}
+                score={scorecardResult.score}
+                totalPoints={scorecardResult.total_possible}
+                studentName={scorecardResult.student_name}
+                quizTitle={scorecardResult.quiz_title || activeQuiz?.title || 'Quiz'}
+                quizId={scorecardResult.quiz || activeQuiz?.id}
               />
             </div>
           ) : (
