@@ -205,7 +205,14 @@ function normalizeQuestionType(value) {
     return 'short_text';
   }
 
-  if (raw === 'essay question') {
+  if (
+    raw === 'essay'
+    || raw === 'essay question'
+    || raw === 'essay_question'
+    || raw === 'short answer'
+    || raw === 'short_answer'
+    || raw === 'short_answer_question'
+  ) {
     return 'essay';
   }
 
@@ -1131,6 +1138,103 @@ export default function LiveAnalytics({
 
             {isEssayQuestion ? (
               <div className="space-y-4">
+                <article className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="text-lg font-semibold text-cyan-100">🧠 Quick AI Class Summary</h3>
+                    <button
+                      type="button"
+                      onClick={refreshAiSummary}
+                      disabled={isRefreshingSummary}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/12 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-55"
+                    >
+                      <span className={isRefreshingSummary ? 'animate-spin' : ''}>📝</span>
+                      Generate Quick Summary
+                    </button>
+                  </div>
+                  <ul className="mt-4 space-y-2 text-sm text-cyan-50">
+                    {activeSummaryPoints.slice(0, 5).map((gist, i) => (
+                      <li key={`${activeQuestionId || 'none'}-essay-summary-${i}`} className="flex items-start gap-2">
+                        <span className="mt-1 text-cyan-300">•</span>
+                        <span>{gist}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+
+                {!staticMode ? (
+                  <article className="rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4">
+                    <div className="mb-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-cyan-300">INSTRUCTOR ASSISTANT</p>
+                      <h4 className="mt-2 text-lg font-semibold text-white">Ask About Student Answers</h4>
+                      <p className="mt-2 text-xs text-slate-400">Scoped to active tab: {activeQuestion?.label || `Question ${activeQuestionId || '-'}`}</p>
+                    </div>
+
+                    {visiblePromptHistory.length ? (
+                      <div className="max-h-72 space-y-3 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                        {visiblePromptHistory.map((item) => (
+                        <div key={item.id || item.created_at} className="space-y-2">
+                          <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3 text-sm text-slate-200">
+                            <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-cyan-300">Instructor Prompt</p>
+                            <p>{item.prompt_text}</p>
+                          </div>
+                          <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-3 text-sm text-violet-100">
+                            <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-violet-300">AI Response</p>
+                            {hasPedagogicalSections(item.response_text) ? (() => {
+                              const formatted = parsePedagogicalSections(item.response_text);
+                              return (
+                                <div className="space-y-3 text-violet-100">
+                                  <div>
+                                    <p className="font-semibold text-violet-200">Submission Breakdown:</p>
+                                    <p className="whitespace-pre-wrap">{formatted.submissionBreakdown}</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-violet-200">Immediate Recommendation:</p>
+                                    <p className="whitespace-pre-wrap">{formatted.immediateRecommendation}</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-violet-200">Suggested Follow-Up Question:</p>
+                                    <p className="whitespace-pre-wrap">{formatted.suggestedFollowUpQuestion}</p>
+                                  </div>
+                                </div>
+                              );
+                            })() : (
+                              <p className="whitespace-pre-wrap text-violet-100">{stripTechnicalFragments(item.response_text)}</p>
+                            )}
+                          </div>
+                        </div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    <div className="mt-3 space-y-2">
+                      <input
+                        type="text"
+                        value={assistantPrompt}
+                        onChange={(event) => setAssistantPrompt(event.target.value)}
+                        placeholder="Ask a classroom question..."
+                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            handleSendPrompt();
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSendPrompt}
+                        disabled={isSendingPrompt || !assistantPrompt.trim()}
+                        className="w-full rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 transition-all hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isSendingPrompt ? 'Generating response...' : 'Send Prompt'}
+                      </button>
+                      {assistantError ? (
+                        <p className="text-xs text-rose-300">{assistantError}</p>
+                      ) : null}
+                    </div>
+                  </article>
+                ) : null}
+
                 <button
                   type="button"
                   onClick={() => setIsResponsesPanelOpen(true)}
@@ -1406,7 +1510,7 @@ export default function LiveAnalytics({
               </div>
             ) : null}
 
-            {(isShortTextQuestion || isEssayQuestion || isMultipleChoiceQuestion || isTrueFalseQuestion || isMatchingQuestion) ? (
+            {(isShortTextQuestion || isMultipleChoiceQuestion || isTrueFalseQuestion || isMatchingQuestion) ? (
               <article className="mt-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h3 className="text-lg font-semibold text-cyan-100">🧠 Quick AI Class Summary</h3>
@@ -1438,7 +1542,7 @@ export default function LiveAnalytics({
             ) : null}
           </section>
 
-          {!staticMode && (isShortTextQuestion || isEssayQuestion || isMultipleChoiceQuestion || isTrueFalseQuestion || isMatchingQuestion) ? (
+          {!staticMode && (isShortTextQuestion || isMultipleChoiceQuestion || isTrueFalseQuestion || isMatchingQuestion) ? (
             <section className="mb-6 rounded-3xl border border-slate-800/90 bg-slate-900/70 p-5 md:p-6">
               <div className="mb-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-cyan-300">INSTRUCTOR ASSISTANT</p>
