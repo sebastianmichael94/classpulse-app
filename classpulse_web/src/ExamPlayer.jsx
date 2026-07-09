@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import axios from 'axios';
 import LatexText from './LatexText';
 import { API_BASE_URL, buildAuthHeaders } from './apiClient';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
+import { Spinner } from './components/ui/spinner';
 
 export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
   const [answers, setAnswers] = useState({});
@@ -133,7 +135,7 @@ export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
   };
 
   if (!currentQuestion) {
-    return <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100">No questions available.</div>;
+    return <div className="min-h-screen bg-background px-4 py-10 text-foreground">No questions available.</div>;
   }
 
   const renderInput = () => {
@@ -166,18 +168,18 @@ export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
                 }}
                 role="button"
                 tabIndex={0}
-                className={`w-full p-4 my-3 text-left rounded-xl border-2 transition-all duration-150 cursor-pointer select-none touch-manipulation ${selected ? 'border-cyan-500 bg-cyan-950/40 text-cyan-200 shadow-md shadow-cyan-950/20' : 'border-slate-800 bg-slate-900/60 hover:border-slate-700 text-slate-300'}`}
+                className={`w-full p-4 my-3 text-left rounded-xl border-2 transition-all duration-150 cursor-pointer select-none touch-manipulation ${selected ? 'border-cyan-500 bg-cyan-500/15 text-cyan-800 shadow-md shadow-cyan-500/10 dark:bg-cyan-950/40 dark:text-cyan-200 dark:shadow-cyan-950/20' : 'border-border bg-card/60 hover:border-input text-muted-foreground'}`}
               >
                 <div className="flex items-start gap-3">
                   <div className={`mt-1 w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${selected ? 'border-cyan-400 bg-cyan-500' : 'border-slate-600'}`}>
-                    {selected ? <div className="w-2 h-2 rounded-full bg-slate-950" /> : null}
+                    {selected ? <div className="w-2 h-2 rounded-full bg-background" /> : null}
                   </div>
                   <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-base md:text-lg font-medium leading-relaxed block w-full">
                       <LatexText text={choice.text || `Option ${index + 1}`} />
                     </span>
                     {choice.image_url ? (
-                      <div className="w-full sm:w-36 overflow-hidden rounded-lg border border-slate-700 bg-slate-900/60 p-2">
+                      <div className="w-full sm:w-36 overflow-hidden rounded-lg border border-input bg-card/60 p-2">
                         <img
                           src={choice.image_url}
                           alt={`Choice ${choice.id || index + 1} diagram`}
@@ -200,7 +202,7 @@ export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
             rows={8}
             value={value}
             onChange={(e) => updateAnswer(currentQuestion.id, e.target.value)}
-            className="min-h-[220px] w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
+            className="min-h-[220px] w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-cyan-400"
             placeholder="Type your detailed explanation here..."
           />
         );
@@ -212,7 +214,7 @@ export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
             type="text"
             value={value}
             onChange={(e) => updateAnswer(currentQuestion.id, e.target.value)}
-            className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
+            className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-cyan-400"
             placeholder="Type your answer"
           />
         );
@@ -224,17 +226,17 @@ export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
 
         return (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
-            <div className="min-w-0 rounded-2xl border border-slate-700 bg-slate-900/65 p-4">
+            <div className="min-w-0 rounded-2xl border border-input bg-card/65 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">Left Items</p>
               <div className="mt-3 space-y-3">
                 {leftItems.map((leftItem) => (
-                  <div key={`left-${leftItem.id}`} className="rounded-xl border border-slate-700 bg-slate-950/70 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{leftItem.id}</p>
-                    <div className="mt-1 text-sm text-slate-100">
+                  <div key={`left-${leftItem.id}`} className="rounded-xl border border-input bg-background/70 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{leftItem.id}</p>
+                    <div className="mt-1 text-sm text-foreground">
                       <LatexText text={leftItem.text || leftItem.id} />
                     </div>
                     {leftItem.image_url ? (
-                      <div className="mt-2 overflow-hidden rounded-lg border border-slate-700 bg-slate-900/60 p-2">
+                      <div className="mt-2 overflow-hidden rounded-lg border border-input bg-card/60 p-2">
                         <img
                           src={leftItem.image_url}
                           alt={`${leftItem.id} reference`}
@@ -243,37 +245,40 @@ export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
                       </div>
                     ) : null}
                     <div className="mt-3">
-                      <label className="mb-1 block text-[10px] uppercase tracking-[0.16em] text-slate-400">Match With</label>
-                      <select
+                      <label className="mb-1 block text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Match With</label>
+                      <Select
                         value={String(matchingValue[leftItem.id] || '')}
-                        onChange={(event) => updateMatchingAnswer(currentQuestion.id, leftItem.id, event.target.value)}
-                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                        onValueChange={(selectedValue) => updateMatchingAnswer(currentQuestion.id, leftItem.id, selectedValue)}
                       >
-                        <option value="">Select option</option>
-                        {rightOptions.map((option) => (
-                          <option key={`map-${leftItem.id}-${option.id}`} value={option.id}>
-                            {option.id}: {option.text || 'Untitled option'}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="w-full rounded-lg bg-background text-sm">
+                          <SelectValue placeholder="Select option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {rightOptions.map((option) => (
+                            <SelectItem key={`map-${leftItem.id}-${option.id}`} value={option.id}>
+                              {option.id}: {option.text || 'Untitled option'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="min-w-0 rounded-2xl border border-slate-700 bg-slate-900/65 p-4">
+            <div className="min-w-0 rounded-2xl border border-input bg-card/65 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-300">Right Options</p>
-              <p className="mt-1 text-xs text-slate-400">Includes distractors.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Includes distractors.</p>
               <div className="mt-3 space-y-3">
                 {rightOptions.map((option) => (
-                  <div key={`right-${option.id}`} className="rounded-xl border border-slate-700 bg-slate-950/70 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{option.id}</p>
-                    <div className="mt-1 text-sm text-slate-100">
+                  <div key={`right-${option.id}`} className="rounded-xl border border-input bg-background/70 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{option.id}</p>
+                    <div className="mt-1 text-sm text-foreground">
                       <LatexText text={option.text || option.id} />
                     </div>
                     {option.image_url ? (
-                      <div className="mt-2 overflow-hidden rounded-lg border border-slate-700 bg-slate-900/60 p-2">
+                      <div className="mt-2 overflow-hidden rounded-lg border border-input bg-card/60 p-2">
                         <img
                           src={option.image_url}
                           alt={`${option.id} reference`}
@@ -294,27 +299,27 @@ export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100">
-      <div className="mx-auto max-w-4xl rounded-3xl border border-slate-800 bg-slate-900/95 p-6 shadow-2xl">
+    <div className="min-h-screen bg-background px-4 py-10 text-foreground">
+      <div className="mx-auto max-w-4xl rounded-3xl border border-border bg-card/95 p-6 shadow-2xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">Question {currentIndex + 1} of {questions.length}</p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+        <div className="rounded-2xl border border-border bg-background/70 p-5">
           {currentQuestionImage ? (
-            <div className="mb-5 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50">
+            <div className="mb-5 overflow-hidden rounded-2xl border border-input bg-card/50">
               <img
                 src={currentQuestionImage}
                 alt="Question reference"
-                className="pointer-events-none select-none h-auto max-h-80 w-full object-contain bg-slate-950"
+                className="pointer-events-none select-none h-auto max-h-80 w-full object-contain bg-background"
               />
             </div>
           ) : null}
 
-          <h2 className="text-2xl font-semibold text-white"><LatexText text={currentQuestion.question_title} /></h2>
-          <p className="text-lg leading-8 text-slate-200"><LatexText text={currentQuestion.question_text} /></p>
+          <h2 className="text-2xl font-semibold text-foreground"><LatexText text={currentQuestion.question_title} /></h2>
+          <p className="text-lg leading-8 text-foreground"><LatexText text={currentQuestion.question_text} /></p>
           <div className="mt-6">{renderInput()}</div>
         </div>
 
@@ -324,7 +329,7 @@ export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
           <button
             onClick={handlePrev}
             disabled={currentIndex === 0}
-            className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-input bg-secondary px-4 py-2 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             Previous
           </button>
@@ -340,8 +345,9 @@ export default function ExamPlayer({ quiz, studentName, onSubmitSuccess }) {
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-70"
             >
+              {isSubmitting ? <Spinner label="Submitting exam" /> : null}
               {isSubmitting ? 'Submitting…' : 'Submit Exam'}
             </button>
           )}
