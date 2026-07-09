@@ -4,6 +4,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { API_BASE_URL } from './apiClient';
+import { Button } from './components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
+import { Input } from './components/ui/input';
+import { Label } from './components/ui/label';
+import { Spinner } from './components/ui/spinner';
 
 function MathText({ value }) {
   if (typeof value !== 'string') return null;
@@ -77,66 +82,63 @@ export default function StudentQuizGateway({ onQuizLoaded }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-3xl rounded-3xl border border-slate-800 bg-slate-900/90 shadow-2xl overflow-hidden">
-        <div className="bg-[#0f172a] px-8 py-6 border-b border-slate-800">
-          <p className="text-sm uppercase tracking-[0.35em] text-cyan-300">ClassPulse Student Access</p>
-          <h1 className="mt-3 text-3xl font-semibold text-white">Enter your quiz access point</h1>
-          <p className="mt-2 text-sm text-slate-400">Scan a QR code or type the 4-digit access code to start the exam.</p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center px-4 py-10">
+      <Card className="w-full max-w-3xl rounded-3xl border-border/80 bg-card/95 shadow-2xl overflow-hidden">
+        <CardHeader className="bg-card px-8 py-6 border-b border-border/70">
+          <p className="text-sm uppercase tracking-[0.35em] text-primary">ClassPulse Student Access</p>
+          <CardTitle className="mt-3 text-3xl">Enter your quiz access point</CardTitle>
+          <p className="mt-2 text-sm text-muted-foreground">Scan a QR code or type the 4-digit access code to start the exam.</p>
+        </CardHeader>
 
-        <div className="grid gap-8 p-8 md:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-2xl border border-slate-800 bg-black/20 p-6">
-            <div className="w-40 h-40 mx-auto rounded-2xl border-2 border-dashed border-cyan-500/40 bg-cyan-950/30 flex items-center justify-center text-center text-sm font-medium text-cyan-200">
+        <CardContent className="grid gap-8 p-8 md:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-2xl border border-border/70 bg-background/30 p-6">
+            <div className="w-40 h-40 mx-auto rounded-2xl border-2 border-dashed border-primary/40 bg-primary/10 flex items-center justify-center text-center text-sm font-medium text-primary">
               QR Scan Placeholder
             </div>
-            <div className="mt-6 space-y-3 text-sm text-slate-400">
+            <div className="mt-6 space-y-3 text-sm text-muted-foreground">
               <p>• Point your camera at the quiz QR code.</p>
               <p>• Or enter the four-digit pin manually below.</p>
             </div>
           </div>
 
           <form onSubmit={handleUnlock} className="space-y-4">
-            <label className="block text-sm font-medium text-slate-300">
+            <Label className="block text-sm text-muted-foreground">
               Student Name
-              <input
+              <Input
                 value={studentName}
                 onChange={(e) => setStudentName(e.target.value)}
                 placeholder="Enter your name"
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none ring-0 focus:border-cyan-400"
+                className="mt-2 h-11"
                 required
               />
-            </label>
+            </Label>
 
-            <label className="block text-sm font-medium text-slate-300">
+            <Label className="block text-sm text-muted-foreground">
               Access Code
-              <input
+              <Input
                 value={accessCode}
                 onChange={(e) => setAccessCode(e.target.value)}
                 inputMode="numeric"
                 maxLength="4"
                 placeholder="0000"
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none ring-0 focus:border-cyan-400"
+                className="mt-2 h-11"
                 required
               />
-            </label>
+            </Label>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
-            >
+            <Button type="submit" disabled={isLoading} className="h-11 w-full text-sm font-semibold inline-flex items-center justify-center gap-2">
+              {isLoading ? <Spinner label="Unlocking quiz" /> : null}
               {isLoading ? 'Unlocking Quiz...' : 'Start Quiz'}
-            </button>
+            </Button>
 
             {error && (
-              <div className="rounded-xl border border-rose-500/40 bg-rose-950/60 px-4 py-3 text-sm text-rose-200">
+              <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error}
               </div>
             )}
           </form>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

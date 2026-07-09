@@ -12,6 +12,10 @@ import QuizCreator from './QuizCreator';
 import ProfessorDashboard from './ProfessorDashboard';
 import LiveAnalytics from './LiveAnalytics';
 import ProfessorHistoryVault from './ProfessorHistoryVault';
+import { ModeToggle } from './components/mode-toggle';
+import { Button } from './components/ui/button';
+import { Spinner } from './components/ui/spinner';
+import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs';
 import {
   AUTH_SESSION_KEY,
   API_BASE_URL,
@@ -242,7 +246,12 @@ function ExamRoute({ activeQuiz, studentName, onSubmitSuccess, isSessionHydratin
   const { quizId } = useParams();
 
   if (isSessionHydrating) {
-    return <div className="min-h-screen bg-slate-50 text-slate-600 flex items-center justify-center dark:bg-slate-950 dark:text-slate-300">Restoring active exam session...</div>;
+    return (
+      <div className="min-h-screen bg-background text-muted-foreground flex flex-col items-center justify-center gap-3">
+        <Spinner className="text-primary" label="Restoring active exam session" />
+        <p>Restoring active exam session...</p>
+      </div>
+    );
   }
 
   if (!activeQuiz || String(activeQuiz?.id) !== String(quizId)) {
@@ -715,7 +724,15 @@ function AppRoutes() {
   };
 
   return (
-    <Routes>
+    <>
+      <div className="pointer-events-none fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
+        <ModeToggle
+          className="pointer-events-auto h-11 w-11 rounded-full border-cyan-500/60 bg-background/85 text-foreground shadow-[0_12px_30px_rgba(8,145,178,0.35)] backdrop-blur-md transition-all hover:-translate-y-0.5 hover:scale-105 hover:bg-background"
+        />
+      </div>
+
+      <div className="pb-24">
+        <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -723,65 +740,80 @@ function AppRoutes() {
       <Route
         path="/instructor"
         element={isProfessor ? (
-          <div className="flex w-full min-h-screen bg-slate-950 text-slate-100 font-sans">
-            <aside className="w-64 min-h-screen bg-slate-900 border-r border-slate-800 p-6 flex flex-col space-y-2 flex-shrink-0 text-slate-100">
+          <div className="flex w-full min-h-screen bg-background text-foreground font-sans">
+            <aside className="hidden lg:flex w-64 min-h-screen bg-card border-r border-border p-6 flex-col space-y-2 flex-shrink-0 text-foreground">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-400">Instructor Workspace</p>
-                <h2 className="mt-2 text-xl font-semibold text-white">Dr. Reshma Panel</h2>
+                <h2 className="mt-2 text-xl font-semibold text-foreground">Dr. Reshma Panel</h2>
               </div>
 
-              <button
+              <Button
                 type="button"
                 onClick={() => setActiveTab('welcome')}
-                className={`w-full rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'welcome' ? 'border-cyan-400/30 bg-cyan-500 text-slate-950' : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:text-white hover:bg-slate-900'}`}
+                variant={activeTab === 'welcome' ? 'default' : 'outline'}
+                className="w-full justify-start"
               >
                 Welcome Home
-              </button>
+              </Button>
 
-              <button
+              <Button
                 type="button"
                 onClick={() => setActiveTab('host')}
-                className={`w-full rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'host' ? 'border-cyan-400/30 bg-cyan-500 text-slate-950' : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:text-white hover:bg-slate-900'}`}
+                variant={activeTab === 'host' ? 'default' : 'outline'}
+                className="w-full justify-start"
               >
                 Host a New Quiz
-              </button>
+              </Button>
 
-              <button
+              <Button
                 type="button"
                 onClick={() => setActiveTab('history')}
-                className={`w-full rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${activeTab === 'history' ? 'border-cyan-400/30 bg-cyan-500 text-slate-950' : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:text-white hover:bg-slate-900'}`}
+                variant={activeTab === 'history' ? 'default' : 'outline'}
+                className="w-full justify-start"
               >
                 Quiz History
-              </button>
+              </Button>
             </aside>
 
-            <main className="flex-1 p-8 bg-slate-950 overflow-y-auto min-h-screen">
+            <main className="flex-1 p-8 bg-background overflow-y-auto min-h-screen">
               <div className="mx-auto flex max-w-7xl flex-col gap-6">
+                <div className="cp-top-nav -mx-8 -mt-8 mb-2 px-4 py-3 sm:px-8">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="lg:hidden">
+                      <TabsList>
+                        <TabsTrigger value="welcome">Welcome</TabsTrigger>
+                        <TabsTrigger value="host">Host</TabsTrigger>
+                        <TabsTrigger value="history">History</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+                </div>
+
                 {activeTab === 'welcome' ? (
-                  <section className="p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl">
+                  <section className="p-8 bg-card border border-border rounded-2xl shadow-2xl">
                     <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">Instructor Greeting</p>
-                    <h1 className="mt-3 text-3xl font-semibold text-white md:text-4xl">Welcome back, Dr. Reshma Menon</h1>
-                    <p className="mt-3 max-w-2xl text-sm text-slate-300">Start a fresh classroom session or jump into historical analytics with one click.</p>
+                    <h1 className="mt-3 text-3xl font-semibold text-foreground md:text-4xl">Welcome back, Dr. Reshma Menon</h1>
+                    <p className="mt-3 max-w-2xl text-sm text-muted-foreground">Start a fresh classroom session or jump into historical analytics with one click.</p>
 
                     <div className="mt-8 grid gap-4 md:grid-cols-2">
                       <button
                         type="button"
                         onClick={() => setActiveTab('host')}
-                        className="p-6 bg-slate-900/40 border border-slate-800 rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
+                        className="p-6 bg-card/40 border border-border rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
                       >
                         <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-400">Quick Action</p>
-                        <p className="text-lg font-bold text-slate-200 mt-2">Host a Live Session</p>
-                        <p className="text-sm text-slate-400 mt-1">Build, publish, and launch your next quiz instantly.</p>
+                        <p className="text-lg font-bold text-foreground mt-2">Host a Live Session</p>
+                        <p className="text-sm text-muted-foreground mt-1">Build, publish, and launch your next quiz instantly.</p>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setActiveTab('history')}
-                        className="p-6 bg-slate-900/40 border border-slate-800 rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
+                        className="p-6 bg-card/40 border border-border rounded-xl hover:border-cyan-500 transition-all text-left block w-full"
                       >
                         <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-400">Quick Action</p>
-                        <p className="text-lg font-bold text-slate-200 mt-2">Review Past Results</p>
-                        <p className="text-sm text-slate-400 mt-1">Open past quizzes and relaunch sessions.</p>
+                        <p className="text-lg font-bold text-foreground mt-2">Review Past Results</p>
+                        <p className="text-sm text-muted-foreground mt-1">Open past quizzes and relaunch sessions.</p>
                       </button>
                     </div>
                   </section>
@@ -789,36 +821,38 @@ function AppRoutes() {
 
                 {activeTab === 'host' ? (
                   <>
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl">
+                    <div className="rounded-2xl border border-border bg-card/80 p-6 shadow-2xl">
                       <p className="text-xs font-mono uppercase tracking-[0.3em] text-cyan-400">Live Class Controller</p>
-                      <h1 className="mt-2 text-3xl font-semibold text-white">Instructor Control Center</h1>
-                      <p className="mt-2 max-w-2xl text-sm text-slate-400">Finish your quiz and watch live class results here.</p>
+                      <h1 className="mt-2 text-3xl font-semibold text-foreground">Instructor Control Center</h1>
+                      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Finish your quiz and watch live class results here.</p>
                     </div>
-                    <QuizHeaderForm onSaveHeader={handleHeaderSave} />
-                    <QuizCreator
-                      onSaveQuestion={handleSaveQuestion}
-                      questionList={activeQuestionList}
-                      onDeleteQuestion={handleDeleteQuestion}
-                      onReorderQuestion={handleReorderQuestion}
-                    />
-                    <ProfessorDashboard
-                      activeQuiz={activeQuiz || quizHeader}
-                      draftQuestions={activeQuestionList}
-                      onPublish={handlePublish}
-                      onLaunchQuiz={handleLaunchQuizFromHistory}
-                      questionCount={activeQuestionList.length}
-                      isPublishing={isPublishing}
-                      publishError={publishError}
-                      publishedQuizzes={publishedQuizzes}
-                    />
-                    <LiveAnalytics
-                      quizId={publishedQuizId || activeQuiz?.id}
-                      accessCode={activeQuiz?.access_code || activeQuiz?.accessCode || ''}
-                      onSessionStateChange={handleLiveQuizSessionStateChange}
-                      initialSessionStatus={activeQuiz?.status || activeQuiz?.quiz_status || 'READY'}
-                      initialStartedAt={activeQuiz?.started_at || null}
-                      initialDurationMinutes={activeQuiz?.duration_minutes || activeQuiz?.time_limit_minutes || activeQuiz?.timeLimit || 10}
-                    />
+                    <section className="grid gap-6">
+                      <QuizHeaderForm onSaveHeader={handleHeaderSave} />
+                      <QuizCreator
+                        onSaveQuestion={handleSaveQuestion}
+                        questionList={activeQuestionList}
+                        onDeleteQuestion={handleDeleteQuestion}
+                        onReorderQuestion={handleReorderQuestion}
+                      />
+                      <ProfessorDashboard
+                        activeQuiz={activeQuiz || quizHeader}
+                        draftQuestions={activeQuestionList}
+                        onPublish={handlePublish}
+                        onLaunchQuiz={handleLaunchQuizFromHistory}
+                        questionCount={activeQuestionList.length}
+                        isPublishing={isPublishing}
+                        publishError={publishError}
+                        publishedQuizzes={publishedQuizzes}
+                      />
+                      <LiveAnalytics
+                        quizId={publishedQuizId || activeQuiz?.id}
+                        accessCode={activeQuiz?.access_code || activeQuiz?.accessCode || ''}
+                        onSessionStateChange={handleLiveQuizSessionStateChange}
+                        initialSessionStatus={activeQuiz?.status || activeQuiz?.quiz_status || 'READY'}
+                        initialStartedAt={activeQuiz?.started_at || null}
+                        initialDurationMinutes={activeQuiz?.duration_minutes || activeQuiz?.time_limit_minutes || activeQuiz?.timeLimit || 10}
+                      />
+                    </section>
                   </>
                 ) : null}
 
@@ -855,7 +889,7 @@ function AppRoutes() {
         path="/scorecard"
         element={(
           scorecardResult ? (
-            <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100 flex items-center justify-center">
+            <div className="min-h-screen bg-background px-4 py-10 text-foreground flex items-center justify-center">
               <StudentScorecard
                 score={scorecardResult.score}
                 totalPoints={scorecardResult.total_possible}
@@ -869,13 +903,15 @@ function AppRoutes() {
           )
         )}
       />
-    </Routes>
+        </Routes>
+      </div>
+    </>
   );
 }
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
+    <div className="cp-app-shell font-sans">
       <BrowserRouter>
         <AppRoutes />
       </BrowserRouter>

@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Play, Search } from 'lucide-react';
 import LiveAnalytics from './LiveAnalytics';
 import { API_BASE_URL, authFetch, readAccessToken } from './apiClient';
+import { Button } from './components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
+import { Spinner } from './components/ui/spinner';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './components/ui/table';
 
 function formatDate(value) {
   if (!value) {
@@ -72,91 +77,94 @@ export default function ProfessorHistoryVault({ onLaunchQuiz }) {
   }, [authToken]);
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 text-slate-100 shadow-2xl">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-5">
+    <div className="rounded-2xl border border-border bg-card/90 p-6 text-foreground shadow-2xl">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4 mb-5">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">📁 Quiz History</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">Instructor history</h2>
-          <p className="mt-1 text-sm text-slate-400">Review past quizzes, results, and class responses.</p>
+          <h2 className="mt-2 text-2xl font-semibold text-foreground">Instructor history</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Review past quizzes, results, and class responses.</p>
         </div>
       </div>
 
-      {loading ? <p className="text-sm text-slate-400">Loading history...</p> : null}
+      {loading ? (
+        <div className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner label="Loading history" />
+          <span>Loading history...</span>
+        </div>
+      ) : null}
       {error ? <p className="text-sm text-rose-300 mb-4">{error}</p> : null}
 
-      <div className="overflow-x-auto rounded-xl border border-slate-800">
-        <table className="w-full min-w-[760px] text-left">
-          <thead className="bg-slate-950/80">
-            <tr>
-              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Quiz Title</th>
-              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Access Code</th>
-              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Status</th>
-              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Date</th>
-              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Submissions</th>
-              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Saved AI Summary</th>
-              <th className="px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">Action</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <Table className="min-w-[760px] text-left">
+          <TableHeader className="bg-background/80">
+            <TableRow>
+              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.2em]">Quiz Title</TableHead>
+              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.2em]">Access Code</TableHead>
+              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.2em]">Status</TableHead>
+              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.2em]">Date</TableHead>
+              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.2em]">Submissions</TableHead>
+              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.2em]">Saved AI Summary</TableHead>
+              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.2em]">Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {historyRows.length ? historyRows.map((row) => (
-              <tr key={row.id} className="border-t border-slate-800 bg-slate-900/70">
-                <td className="px-4 py-3 text-sm font-semibold text-slate-100">{row.title}</td>
-                <td className="px-4 py-3 text-sm text-slate-300 font-mono">{row.access_code || 'N/A'}</td>
-                <td className="px-4 py-3 text-sm text-slate-300">{row.status || 'UNKNOWN'}</td>
-                <td className="px-4 py-3 text-sm text-slate-300">{formatDate(row.created_at)}</td>
-                <td className="px-4 py-3">
-                  <span className="inline-flex items-center rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-200">
+              <TableRow key={row.id} className="bg-card/70">
+                <TableCell className="px-4 py-3 text-sm font-semibold">{row.title}</TableCell>
+                <TableCell className="px-4 py-3 text-sm text-muted-foreground font-mono">{row.access_code || 'N/A'}</TableCell>
+                <TableCell className="px-4 py-3 text-sm text-muted-foreground">{row.status || 'UNKNOWN'}</TableCell>
+                <TableCell className="px-4 py-3 text-sm text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+                <TableCell className="px-4 py-3">
+                  <span className="inline-flex items-center rounded-full border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-700 dark:text-cyan-200">
                     {row.total_submissions} submissions
                   </span>
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-300">{row.has_ai_summary_cached ? 'Saved' : 'Not saved'}</td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell className="px-4 py-3 text-sm text-muted-foreground">{row.has_ai_summary_cached ? 'Saved' : 'Not saved'}</TableCell>
+                <TableCell className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <button
+                    <Button
                       type="button"
                       onClick={() => onLaunchQuiz?.(row)}
-                      className="rounded-lg border border-cyan-400/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-cyan-200 transition-all hover:bg-cyan-500/20"
+                      variant="outline"
+                      size="sm"
+                      className="border-cyan-500/50 bg-cyan-500/10 text-cyan-700 hover:bg-cyan-500/20 dark:text-cyan-200"
                     >
-                      ▶ Start Live Session
-                    </button>
-                    <button
+                      <Play className="size-4" /> Start Live Session
+                    </Button>
+                    <Button
                       type="button"
                       onClick={() => setSelectedQuiz(row)}
-                      className="rounded-lg border border-violet-400/40 bg-violet-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-violet-200 transition-all hover:bg-violet-500/20"
+                      variant="outline"
+                      size="sm"
+                      className="border-violet-500/50 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20 dark:text-violet-200"
                     >
-                      🔍 Open History
-                    </button>
+                      <Search className="size-4" /> Open History
+                    </Button>
                   </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )) : (
-              <tr>
-                <td colSpan={7} className="px-4 py-5 text-sm text-slate-400 bg-slate-900/70">No past quizzes found for this instructor account yet.</td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={7} className="px-4 py-5 text-sm text-muted-foreground bg-card/70">No past quizzes found for this instructor account yet.</TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
-      {selectedQuiz ? (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="mx-auto max-w-6xl">
-            <div className="mb-3 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setSelectedQuiz(null)}
-                className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200 transition-all hover:border-rose-400/50 hover:text-rose-300"
-              >
-                Close History
-              </button>
-            </div>
+      <Dialog open={Boolean(selectedQuiz)} onOpenChange={(open) => { if (!open) setSelectedQuiz(null); }}>
+        <DialogContent className="max-w-[95vw] h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Quiz History Analytics</DialogTitle>
+          </DialogHeader>
+          {selectedQuiz ? (
             <LiveAnalytics
               quizId={selectedQuiz.id}
               accessCode={selectedQuiz.access_code || ''}
             />
-          </div>
-        </div>
-      ) : null}
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

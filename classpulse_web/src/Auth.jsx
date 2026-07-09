@@ -119,7 +119,7 @@ export default function Auth() {
             <input type="password" name="password" required className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.password} onChange={handleInputChange} />
           </div>
 
-          <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200 mt-6">
+          <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-foreground font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200 mt-6">
             {isLogin ? 'Sign In' : 'Register Account'}
           </button>
         </form>

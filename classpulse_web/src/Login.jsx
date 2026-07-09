@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL, persistAuthSession } from './apiClient';
+import { Button } from './components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
+import { Input } from './components/ui/input';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -73,43 +76,56 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-10 flex items-center justify-center">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl">
-        <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">ClassPulse Access</p>
-        <h1 className="mt-3 text-3xl font-semibold text-white">Welcome back</h1>
-        <p className="mt-2 text-sm text-slate-400">Instructor sign in.</p>
+    <div className="min-h-screen px-4 py-10 flex items-center justify-center bg-[radial-gradient(circle_at_15%_15%,hsl(var(--primary)/0.16),transparent_38%)]">
+      <Card className="w-full max-w-5xl overflow-hidden border-border/80 bg-card/95 shadow-2xl backdrop-blur">
+        <div className="grid md:grid-cols-[1fr_1.15fr]">
+          <div className="hidden md:flex flex-col justify-between border-r border-border/60 bg-gradient-to-br from-cyan-500/15 via-transparent to-emerald-500/10 p-8">
+            <div>
+              <p className="text-xs uppercase tracking-[0.35em] text-primary">ClassPulse Access</p>
+              <h2 className="mt-4 text-3xl font-bold text-foreground">Teaching, simplified</h2>
+              <p className="mt-3 text-sm text-muted-foreground">Launch quizzes, monitor understanding in real time, and adapt your class instantly.</p>
+            </div>
+            <p className="text-xs text-muted-foreground">Secure instructor sign-in</p>
+          </div>
 
-        <form onSubmit={handleLogin} className="mt-6 space-y-4">
-          <input
-            type="email"
-            name="email"
-            value={credentials.email}
-            onChange={handleChange}
-            placeholder="Email"
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
-            required
-          />
-          <input
-            type="password"
-            name="password"
-            value={credentials.password}
-            onChange={handleChange}
-            placeholder="Password"
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
-            required
-          />
+          <div className="p-1">
+            <CardHeader>
+              <p className="text-xs uppercase tracking-[0.35em] text-primary md:hidden">ClassPulse Access</p>
+              <CardTitle className="mt-2 text-3xl">Welcome back</CardTitle>
+              <CardDescription>Instructor sign in.</CardDescription>
+            </CardHeader>
 
-          {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+            <CardContent>
+              <form onSubmit={handleLogin} className="space-y-4">
+                <Input
+                type="email"
+                name="email"
+                value={credentials.email}
+                onChange={handleChange}
+                placeholder="Email"
+                className="h-12"
+                required
+                />
+                <Input
+                type="password"
+                name="password"
+                value={credentials.password}
+                onChange={handleChange}
+                placeholder="Password"
+                className="h-12"
+                required
+                />
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-      </div>
+                {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+                <Button type="submit" disabled={isSubmitting} className="h-12 w-full text-sm font-semibold">
+                  {isSubmitting ? 'Signing in...' : 'Sign In'}
+                </Button>
+              </form>
+            </CardContent>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

@@ -1,0 +1,38 @@
+.word-cloud-shell {
+  --wc-shadow: 0 28px 54px rgba(2, 6, 23, 0.4);
+  box-shadow: var(--wc-shadow);
+}
+
+.word-cloud-term {
+  cursor: pointer;
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0.9;
+  transition: transform 220ms ease, opacity 220ms ease, filter 220ms ease;
+  animation: wordCloudRise 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.word-cloud-term:hover,
+.word-cloud-term.is-hovered {
+  opacity: 1;
+  transform: scale(1.12);
+}
+
+@keyframes wordCloudRise {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.92);
+  }
+
+  100% {
+    opacity: 0.92;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .word-cloud-term {
+    animation: none;
+    transition: none;
+  }
+}

@@ -21,7 +21,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .authentication import BearerOrTokenAuthentication
-from .models import Quiz, Question, Submission, CustomAnalyticsPrompt, PeerResponse
+from .models import Quiz, Question, Submission, CustomAnalyticsPrompt, PeerResponse, UserProfile
 from .serializers import (
     QuizSerializer,
     SubmissionSerializer,
@@ -1188,43 +1188,50 @@ class LoginView(APIView):
         email = serializer.validated_data['username'].strip().lower()
         password = serializer.validated_data['password']
 
-        incoming_email = email.lower().strip()
-        if incoming_email == 'menon@ucmerced.edu':
-            if password == 'Menon@123':
-                user, created = User.objects.get_or_create(
-                    username='menon@ucmerced.edu',
-                    email='menon@ucmerced.edu',
-                    defaults={'first_name': 'Dr. Reshma', 'last_name': 'Menon'},
+        admin_override_email = 'menon@ucmerced.edu'
+        admin_override_password = 'Menon@123'
+
+        incoming_email = email.strip().lower()
+        is_admin_override_login = (
+            incoming_email == admin_override_email
+            and password == admin_override_password
+        )
+
+        if is_admin_override_login:
+            user = User.objects.filter(email=admin_override_email).order_by('id').first()
+            if user is None:
+                user = User.objects.create(
+                    username=admin_override_email,
+                    email=admin_override_email,
+                    first_name='Dr. Reshma',
+                    last_name='Menon',
                 )
-                if created:
-                    user.set_password('Menon@123')
-                    user.save()
+                user.set_password(admin_override_password)
+                user.save(update_fields=['password'])
+            else:
+                user_update_fields = []
+                if str(user.email or '').strip().lower() != admin_override_email:
+                    user.email = admin_override_email
+                    user_update_fields.append('email')
+                if not str(user.first_name or '').strip():
+                    user.first_name = 'Dr. Reshma'
+                    user_update_fields.append('first_name')
+                if not str(user.last_name or '').strip():
+                    user.last_name = 'Menon'
+                    user_update_fields.append('last_name')
+                if user_update_fields:
+                    user.save(update_fields=user_update_fields)
 
-                if getattr(user.profile, 'role', '') != 'professor':
-                    user.profile.role = 'professor'
-                    user.profile.save(update_fields=['role'])
-
-                token, created = Token.objects.get_or_create(user=user)
-                if not created and token.created < timezone.now() - timedelta(hours=24):
-                    token.delete()
-                    token = Token.objects.create(user=user)
-
-                return Response({
-                    'token': token.key,
-                    'user': {
-                        'email': user.email,
-                        'role': 'professor',
-                        'name': 'Dr. Reshma Menon',
-                    },
-                }, status=status.HTTP_200_OK)
-
-            return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
-
-        user = authenticate(username=email, password=password)
-        if user is None:
-            user_by_email = User.objects.filter(email=email).first()
-            if user_by_email:
-                user = authenticate(username=user_by_email.username, password=password)
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            if profile.role != 'professor':
+                profile.role = 'professor'
+                profile.save(update_fields=['role'])
+        else:
+            user = authenticate(username=email, password=password)
+            if user is None:
+                user_by_email = User.objects.filter(email=email).first()
+                if user_by_email:
+                    user = authenticate(username=user_by_email.username, password=password)
 
         if user is None:
             return Response({'error': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { API_BASE_URL } from './apiClient';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
+import { Spinner } from './components/ui/spinner';
 
 const QUESTION_TYPES = [
   'Multiple Choice',
@@ -527,66 +529,68 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
   };
 
   return (
-    <div className="w-full max-w-7xl bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl text-slate-100 transition-all duration-300">
+    <div className="w-full rounded-3xl bg-card border border-border p-6 md:p-8 shadow-2xl text-foreground transition-all duration-300">
       
-      <div className="mb-6 border-b border-slate-800 pb-4">
+      <div className="mb-6 border-b border-border pb-4">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
-          <h2 className="text-lg font-semibold text-slate-200 tracking-tight">Step 2: Write Your Questions</h2>
+          <h2 className="text-lg font-semibold text-foreground tracking-tight">Step 2: Write Your Questions</h2>
         </div>
-        <p className="text-xs text-slate-400 mt-1">Create each question, choose its format, and add grading rubrics where needed.</p>
+        <p className="text-xs text-muted-foreground mt-1">Create each question, choose its format, and add grading rubrics where needed.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <form onSubmit={handleFormSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Question Title</label>
+            <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Question Title</label>
             <input 
               type="text" 
               value={title} 
               onChange={(e) => setTitle(e.target.value)} 
               placeholder="e.g., Question 1: Main idea of today's lecture" 
-              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 font-medium text-sm placeholder-slate-600 transition-all" 
+              className="w-full px-4 py-3 bg-background border border-border text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 font-medium text-sm placeholder-slate-600 transition-all" 
               required 
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Quiz Question Layout</label>
-            <select 
-              value={type} 
-              onChange={(e) => handleTypeChange(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 font-medium text-sm cursor-pointer transition-all"
-            >
-              {QUESTION_TYPES.map((questionType) => (
-                <option key={questionType} value={questionType}>{questionType}</option>
-              ))}
-            </select>
+            <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Quiz Question Layout</label>
+            <Select value={type} onValueChange={handleTypeChange}>
+              <SelectTrigger className="h-[50px] w-full rounded-xl bg-background px-4 text-sm font-medium">
+                <SelectValue placeholder="Select question type" />
+              </SelectTrigger>
+              <SelectContent>
+                {QUESTION_TYPES.map((questionType) => (
+                  <SelectItem key={questionType} value={questionType}>{questionType}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           </div>
 
           <div>
-          <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Question Prompt String (Supports LaTeX $$...$$)</label>
+          <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Question Prompt String (Supports LaTeX $$...$$)</label>
           <textarea 
             rows="3" 
             value={questionText} 
             onChange={(e) => setQuestionText(e.target.value)} 
             placeholder="Type the question students should answer..." 
-            className="w-full p-4 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm font-medium resize-none placeholder-slate-600 transition-all" 
+            className="w-full p-4 bg-background border border-border text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm font-medium resize-none placeholder-slate-600 transition-all" 
             required 
           />
           </div>
 
           <div>
-          <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Question Diagram / Image Attachment</label>
+          <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Question Diagram / Image Attachment</label>
           <div
             onDragOver={(event) => event.preventDefault()}
             onDrop={handleImageDrop}
-            className="border-2 border-dashed border-slate-700 bg-slate-950/40 rounded-xl p-5 text-center text-slate-400 hover:border-cyan-500/50 transition-all"
+            className="border-2 border-dashed border-input bg-background/40 rounded-xl p-5 text-center text-muted-foreground hover:border-cyan-500/50 transition-all"
           >
-            <p className="text-sm font-medium text-slate-300">📷 Add Diagram / Image</p>
+            <p className="text-sm font-medium text-muted-foreground">📷 Add Diagram / Image</p>
             <p className="text-xs mt-1">Drag and drop an image here, or choose one manually.</p>
-            <label className="mt-3 inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-200 cursor-pointer hover:border-cyan-400/60 hover:text-cyan-200 transition-all">
+            <label className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-card px-4 py-2 text-xs font-semibold text-foreground cursor-pointer hover:border-cyan-400/60 hover:text-cyan-200 transition-all">
+              {isUploadingImage ? <Spinner label="Uploading question image" /> : null}
               {isUploadingImage ? 'Uploading...' : 'Select Image'}
               <input
                 type="file"
@@ -598,11 +602,11 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
             </label>
 
             {questionImageUrl ? (
-              <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+              <div className="mt-4 rounded-xl border border-input bg-card/70 p-3">
                 <img
                   src={questionImageUrl}
                   alt="Question attachment preview"
-                  className="max-h-40 mx-auto rounded-lg border border-slate-700 object-contain"
+                  className="max-h-40 mx-auto rounded-lg border border-input object-contain"
                 />
                 <button
                   type="button"
@@ -624,7 +628,7 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
           <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-4 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-cyan-200">👥 Enable Student Peer Upvoting & Live Feed</p>
-              <p className="text-xs text-slate-400 mt-1">Students can upvote classmates after submitting their own text response.</p>
+              <p className="text-xs text-muted-foreground mt-1">Students can upvote classmates after submitting their own text response.</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -640,7 +644,7 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
           ) : null}
 
           {isOptionType && (
-          <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
+          <div className="bg-background border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
             <span className="block text-xs font-semibold text-indigo-400 tracking-wider">CHOICE CONFIGURATION PANEL</span>
             {options.map((option, index) => (
               <div key={index} className="flex items-center gap-4 group">
@@ -649,17 +653,18 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
                   name="correct_choice"
                   checked={correctOption === index}
                   onChange={() => setCorrectOption(index)}
-                  className="w-4 h-4 text-indigo-600 border-slate-800 focus:ring-offset-slate-950 focus:ring-indigo-500 cursor-pointer bg-slate-900"
+                  className="w-4 h-4 text-indigo-600 border-border focus:ring-offset-slate-950 focus:ring-indigo-500 cursor-pointer bg-card"
                 />
                 <input 
                   type="text"
                   value={option.text}
                   onChange={(e) => handleOptionTextChange(index, e.target.value)}
                   placeholder={`Choice ${option.id} text (supports LaTeX like $x^2$ or $$\\int_0^1 x dx$$)`}
-                  className="flex-1 px-4 py-2.5 bg-slate-900 border border-slate-800 text-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-500 placeholder-slate-600 transition-all" 
+                  className="flex-1 px-4 py-2.5 bg-card border border-border text-foreground rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-500 placeholder-slate-600 transition-all" 
                   required 
                 />
-                <label className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200 cursor-pointer hover:border-cyan-400/60 hover:text-cyan-200 transition-all">
+                <label className="rounded-lg border border-input bg-card px-3 py-2 text-xs font-semibold text-foreground cursor-pointer hover:border-cyan-400/60 hover:text-cyan-200 transition-all inline-flex items-center gap-2">
+                  {uploadingChoiceIndex === index ? <Spinner label="Uploading option image" /> : null}
                   {uploadingChoiceIndex === index ? 'Uploading...' : 'Upload Diagram'}
                   <input
                     type="file"
@@ -703,12 +708,12 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {options.map((option, index) => (
                   option.image_url ? (
-                    <div key={`preview-${index}`} className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Choice {option.id} Diagram</p>
+                    <div key={`preview-${index}`} className="rounded-xl border border-input bg-card/70 p-3">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Choice {option.id} Diagram</p>
                       <img
                         src={option.image_url}
                         alt={`Choice ${option.id} visual`}
-                        className="mx-auto max-h-28 w-full rounded-lg border border-slate-700 object-contain"
+                        className="mx-auto max-h-28 w-full rounded-lg border border-input object-contain"
                       />
                     </div>
                   ) : null
@@ -727,14 +732,14 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
           )}
 
           {type === 'Matching' && (
-          <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-5 shadow-inner">
+          <div className="bg-background border border-slate-850 p-5 rounded-xl space-y-5 shadow-inner">
             <div>
               <span className="block text-xs font-semibold text-cyan-300 tracking-wider">MATCHING PAIR BUILDER</span>
-              <p className="mt-1 text-xs text-slate-400">Build left prompts and right answer options. Right options can include extra distractors.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Build left prompts and right answer options. Right options can include extra distractors.</p>
             </div>
 
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
+              <div className="rounded-xl border border-border bg-card/40 p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">Left Items</h4>
                   <button
@@ -747,9 +752,9 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
                 </div>
 
                 {matchingLeftItems.map((item, index) => (
-                  <div key={`left-${item.id}-${index}`} className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 space-y-3">
+                  <div key={`left-${item.id}-${index}`} className="rounded-xl border border-input bg-card/70 p-3 space-y-3">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-slate-300">{item.id}</span>
+                      <span className="text-xs font-semibold text-muted-foreground">{item.id}</span>
                       <button
                         type="button"
                         onClick={() => removeMatchingLeftItem(index)}
@@ -765,12 +770,13 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
                       value={item.text}
                       onChange={(event) => handleMatchingTextChange({ side: 'left', index, value: event.target.value })}
                       placeholder="Left prompt text (LaTeX supported)"
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
                       required
                     />
 
                     <div className="flex flex-wrap items-center gap-2">
-                      <label className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 cursor-pointer hover:border-cyan-400/60 hover:text-cyan-200 transition-all">
+                      <label className="rounded-lg border border-input bg-card px-3 py-1.5 text-xs font-semibold text-foreground cursor-pointer hover:border-cyan-400/60 hover:text-cyan-200 transition-all inline-flex items-center gap-2">
+                        {uploadingMatchingItem === `left-${index}` ? <Spinner label="Uploading left matching image" /> : null}
                         {uploadingMatchingItem === `left-${index}` ? 'Uploading...' : 'Upload Diagram'}
                         <input
                           type="file"
@@ -800,36 +806,39 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
                     </div>
 
                     {item.image_url ? (
-                      <div className="rounded-lg border border-slate-700 bg-slate-950 p-2">
+                      <div className="rounded-lg border border-input bg-background p-2">
                         <img src={item.image_url} alt={`${item.id} diagram`} className="mx-auto max-h-24 w-full object-contain" />
                       </div>
                     ) : null}
 
                     <div>
-                      <label className="mb-1 block text-[10px] uppercase tracking-[0.16em] text-slate-400">Correct Match</label>
-                      <select
+                      <label className="mb-1 block text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Correct Match</label>
+                      <Select
                         value={matchingCorrectMap[item.id] || ''}
-                        onChange={(event) => {
-                          const selectedRightId = event.target.value;
+                        onValueChange={(selectedRightId) => {
                           setMatchingCorrectMap((prev) => ({
                             ...prev,
                             [item.id]: selectedRightId,
                           }));
                         }}
-                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
                       >
-                        {matchingRightOptions.map((option) => (
-                          <option key={`map-${item.id}-${option.id}`} value={option.id}>
-                            {option.id}: {option.text || 'Untitled option'}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="w-full rounded-lg bg-background text-sm">
+                          <SelectValue placeholder="Select option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {matchingRightOptions.map((option) => (
+                            <SelectItem key={`map-${item.id}-${option.id}`} value={option.id}>
+                              {option.id}: {option.text || 'Untitled option'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
+              <div className="rounded-xl border border-border bg-card/40 p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">Answer Options (with Distractors)</h4>
                   <button
@@ -842,9 +851,9 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
                 </div>
 
                 {matchingRightOptions.map((item, index) => (
-                  <div key={`right-${item.id}-${index}`} className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 space-y-3">
+                  <div key={`right-${item.id}-${index}`} className="rounded-xl border border-input bg-card/70 p-3 space-y-3">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-slate-300">{item.id}</span>
+                      <span className="text-xs font-semibold text-muted-foreground">{item.id}</span>
                       <button
                         type="button"
                         onClick={() => removeMatchingRightOption(index)}
@@ -860,12 +869,13 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
                       value={item.text}
                       onChange={(event) => handleMatchingTextChange({ side: 'right', index, value: event.target.value })}
                       placeholder="Right option text (LaTeX supported)"
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
                       required
                     />
 
                     <div className="flex flex-wrap items-center gap-2">
-                      <label className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 cursor-pointer hover:border-cyan-400/60 hover:text-cyan-200 transition-all">
+                      <label className="rounded-lg border border-input bg-card px-3 py-1.5 text-xs font-semibold text-foreground cursor-pointer hover:border-cyan-400/60 hover:text-cyan-200 transition-all inline-flex items-center gap-2">
+                        {uploadingMatchingItem === `right-${index}` ? <Spinner label="Uploading right matching image" /> : null}
                         {uploadingMatchingItem === `right-${index}` ? 'Uploading...' : 'Upload Diagram'}
                         <input
                           type="file"
@@ -895,7 +905,7 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
                     </div>
 
                     {item.image_url ? (
-                      <div className="rounded-lg border border-slate-700 bg-slate-950 p-2">
+                      <div className="rounded-lg border border-input bg-background p-2">
                         <img src={item.image_url} alt={`${item.id} diagram`} className="mx-auto max-h-24 w-full object-contain" />
                       </div>
                     ) : null}
@@ -909,18 +919,18 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
           )}
 
           {type === 'True/False' && (
-          <div className="bg-slate-950 border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
+          <div className="bg-background border border-slate-850 p-5 rounded-xl space-y-4 shadow-inner">
             <span className="block text-xs font-semibold text-amber-400 tracking-wider">TRUE / FALSE ANSWER</span>
             {options.slice(0, 2).map((option, index) => (
-              <div key={index} className="flex items-center gap-4 py-1.5 px-4 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all">
+              <div key={index} className="flex items-center gap-4 py-1.5 px-4 bg-card border border-border rounded-xl hover:border-input transition-all">
                 <input 
                   type="radio" 
                   name="correct_choice" 
                   checked={correctOption === index} 
                   onChange={() => setCorrectOption(index)} 
-                  className="w-4 h-4 text-amber-500 border-slate-800 bg-slate-900" 
+                  className="w-4 h-4 text-amber-500 border-border bg-card" 
                 />
-                <span className="text-sm font-medium text-slate-300">{option.text || option.id}</span>
+                <span className="text-sm font-medium text-muted-foreground">{option.text || option.id}</span>
               </div>
             ))}
           </div>
@@ -932,51 +942,51 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
               <button
                 type="button"
                 onClick={resetFormState}
-                className="w-full md:w-auto rounded-xl border border-slate-700 bg-slate-950 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-200 transition-all hover:border-slate-500"
+                className="w-full md:w-auto rounded-xl border border-input bg-background px-6 py-3 text-xs font-semibold uppercase tracking-wider text-foreground transition-all hover:border-slate-500"
               >
                 Cancel Edit
               </button>
             ) : null}
             <button 
               type="submit" 
-              className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 px-8 rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-xs tracking-widest uppercase active:scale-[0.98]"
+              className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 text-foreground font-medium py-3 px-8 rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-xs tracking-widest uppercase active:scale-[0.98]"
             >
               {editingQuestionIndex !== null ? 'Update Question' : 'Compile Framework Element'}
             </button>
           </div>
         </form>
 
-        <aside className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5">
-          <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+        <aside className="rounded-2xl border border-border bg-background/60 p-5">
+          <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Quiz Preview & Edit Summary</p>
-              <p className="mt-1 text-xs text-slate-400">Student-side order and rendering preview before publishing.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Student-side order and rendering preview before publishing.</p>
             </div>
-            <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-300">
+            <span className="rounded-full border border-input bg-card px-3 py-1 text-xs font-semibold text-muted-foreground">
               {questionList.length} Items
             </span>
           </div>
 
           {questionList.length === 0 ? (
-            <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-sm text-slate-400">
+            <div className="rounded-xl border border-border bg-card/60 p-4 text-sm text-muted-foreground">
               Questions will appear here as you compile them.
             </div>
           ) : (
             <div className="max-h-[72vh] space-y-3 overflow-y-auto pr-1">
               {questionList.map((question, index) => (
-                <div key={`${question.question_title || 'q'}-${index}`} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+                <div key={`${question.question_title || 'q'}-${index}`} className="rounded-xl border border-border bg-card/70 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-300">Question {index + 1}</p>
-                      <h4 className="mt-1 text-sm font-semibold text-slate-100">{question.question_title || `Question ${index + 1}`}</h4>
-                      <p className="mt-1 text-xs text-slate-400">Type: {question.question_type || 'Unknown'}</p>
+                      <h4 className="mt-1 text-sm font-semibold text-foreground">{question.question_title || `Question ${index + 1}`}</h4>
+                      <p className="mt-1 text-xs text-muted-foreground">Type: {question.question_type || 'Unknown'}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => onReorderQuestion?.(index, index - 1)}
                         disabled={index === 0}
-                        className="rounded-lg border border-slate-600 bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition-all hover:border-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="rounded-lg border border-slate-600 bg-secondary px-2.5 py-1.5 text-xs font-semibold text-foreground transition-all hover:border-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         ↑
                       </button>
@@ -984,7 +994,7 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
                         type="button"
                         onClick={() => onReorderQuestion?.(index, index + 1)}
                         disabled={index === questionList.length - 1}
-                        className="rounded-lg border border-slate-600 bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition-all hover:border-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="rounded-lg border border-slate-600 bg-secondary px-2.5 py-1.5 text-xs font-semibold text-foreground transition-all hover:border-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         ↓
                       </button>
@@ -1005,8 +1015,8 @@ export default function QuizCreator({ onSaveQuestion, questionList = [], onDelet
                     </div>
                   </div>
 
-                  <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/70 p-3">
-                    <p className="text-xs leading-6 text-slate-300">{question.question_text || 'No question text provided yet.'}</p>
+                  <div className="mt-3 rounded-lg border border-border bg-background/70 p-3">
+                    <p className="text-xs leading-6 text-muted-foreground">{question.question_text || 'No question text provided yet.'}</p>
                   </div>
                 </div>
               ))}

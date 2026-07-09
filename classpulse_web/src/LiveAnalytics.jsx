@@ -10,6 +10,9 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
+import { Spinner } from './components/ui/spinner';
 
 const POLL_INTERVAL_MS = 4000;
 const PIE_COLORS = ['#06b6d4', '#22c55e', '#f59e0b', '#a78bfa', '#ef4444', '#14b8a6', '#f97316'];
@@ -34,10 +37,10 @@ function ChoicePieTooltip({ active, payload, totalSelections }) {
     : '0.0';
 
   return (
-    <div className="rounded-xl border border-slate-700 bg-slate-950/95 p-3 shadow-xl">
-      <p className="text-sm font-semibold text-slate-100">{point.name}</p>
+    <div className="rounded-xl border border-input bg-background/95 p-3 shadow-xl">
+      <p className="text-sm font-semibold text-foreground">{point.name}</p>
       <p className="mt-1 text-xs text-cyan-300">Students: {count}</p>
-      <p className="text-xs text-slate-300">Share: {percent}%</p>
+      <p className="text-xs text-muted-foreground">Share: {percent}%</p>
     </div>
   );
 }
@@ -984,34 +987,34 @@ export default function LiveAnalytics({
   };
 
   return (
-    <div className="w-full rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 text-slate-100 shadow-[0_25px_65px_rgba(2,6,23,0.65)] md:p-8">
-      <section className="mb-6 rounded-3xl border border-slate-800/90 bg-slate-900/70 p-5 md:p-6">
+    <div className="w-full rounded-3xl border border-border bg-gradient-to-br from-background via-background to-cyan-500/5 p-6 text-foreground shadow-[0_25px_65px_rgba(2,6,23,0.18)] dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:shadow-[0_25px_65px_rgba(2,6,23,0.65)] md:p-8">
+      <section className="mb-6 rounded-3xl border border-border/90 bg-card/70 p-5 md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-semibold text-white md:text-3xl">Live Lecture Analytics</h2>
-            <p className="mt-2 text-sm text-slate-300">See how your class is understanding the material as they type.</p>
+            <h2 className="text-2xl font-semibold text-foreground md:text-3xl">Live Lecture Analytics</h2>
+            <p className="mt-2 text-sm text-muted-foreground">See how your class is understanding the material as they type.</p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${sessionStatus === 'ACTIVE' ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200' : sessionStatus === 'COMPLETED' ? 'border-rose-400/60 bg-rose-500/15 text-rose-200' : 'border-amber-400/60 bg-amber-500/15 text-amber-200'}`}>
+              <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${sessionStatus === 'ACTIVE' ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-700 dark:text-emerald-200' : sessionStatus === 'COMPLETED' ? 'border-rose-500/60 bg-rose-500/15 text-rose-700 dark:text-rose-200' : 'border-amber-500/60 bg-amber-500/15 text-amber-700 dark:text-amber-200'}`}>
                 Status: {String(sessionStatus || 'READY')}
               </span>
-              <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${aiSource === 'claude' ? 'border-cyan-400/60 bg-cyan-500/15 text-cyan-200' : 'border-slate-600 bg-slate-800/80 text-slate-300'}`}>
+              <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${aiSource === 'claude' ? 'border-cyan-500/60 bg-cyan-500/15 text-cyan-700 dark:text-cyan-200' : 'border-slate-600 bg-secondary/80 text-muted-foreground'}`}>
                 AI Source: {aiSource === 'claude' ? 'Claude' : 'Local Insight'}
               </span>
             </div>
           </div>
 
           <div className="grid w-full max-w-sm grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-slate-700 bg-slate-950/70 p-3 text-center">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Submissions</p>
-              <p className="mt-1 text-2xl font-bold text-white">{submissionCount}</p>
+            <div className="rounded-2xl border border-input bg-background/70 p-3 text-center">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Submissions</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">{submissionCount}</p>
             </div>
-            <div className="rounded-2xl border border-slate-700 bg-slate-950/70 p-3 text-center">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Timer</p>
-              <p className="mt-1 text-lg font-bold text-cyan-200">{sessionStatus === 'ACTIVE' ? formatRemainingTime(remainingSeconds) : '00:00'}</p>
+            <div className="rounded-2xl border border-input bg-background/70 p-3 text-center">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Timer</p>
+              <p className="mt-1 text-lg font-bold text-cyan-700 dark:text-cyan-200">{sessionStatus === 'ACTIVE' ? formatRemainingTime(remainingSeconds) : '00:00'}</p>
             </div>
-            <div className="col-span-2 rounded-2xl border border-slate-700 bg-slate-950/70 p-3 text-center">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Last Updated</p>
-              <p className="mt-1 text-xs text-slate-300">{lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : 'Waiting for live updates'}</p>
+            <div className="col-span-2 rounded-2xl border border-input bg-background/70 p-3 text-center">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Last Updated</p>
+              <p className="mt-1 text-xs text-muted-foreground">{lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : 'Waiting for live updates'}</p>
             </div>
           </div>
         </div>
@@ -1022,26 +1025,29 @@ export default function LiveAnalytics({
               type="button"
               onClick={handleStartSession}
               disabled={isStartingSession || sessionStatus === 'ACTIVE'}
-              className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/50 bg-emerald-500/15 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100 transition-all hover:-translate-y-0.5 hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-55"
+              className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/50 bg-emerald-500/15 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 transition-all hover:-translate-y-0.5 hover:bg-emerald-500/25 dark:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-55"
             >
-              <span className={isStartingSession ? 'animate-spin' : ''}>▶️</span>
-              {isStartingSession ? 'Starting...' : '▶️ Start Quiz Live'}
+              {isStartingSession ? <Spinner label="Starting live quiz session" /> : null}
+              {isStartingSession ? 'Starting...' : 'Start Quiz Live'}
             </button>
             <button
               type="button"
               onClick={handleStopSession}
               disabled={isStoppingSession || sessionStatus !== 'ACTIVE'}
-              className="inline-flex items-center gap-2 rounded-xl border border-rose-400/50 bg-rose-500/15 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-rose-100 transition-all hover:-translate-y-0.5 hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-55"
+              className="inline-flex items-center gap-2 rounded-xl border border-rose-500/50 bg-rose-500/15 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-rose-700 transition-all hover:-translate-y-0.5 hover:bg-rose-500/25 dark:text-rose-100 disabled:cursor-not-allowed disabled:opacity-55"
             >
-              <span className={isStoppingSession ? 'animate-spin' : ''}>🛑</span>
-              {isStoppingSession ? 'Stopping...' : '🛑 Stop Quiz'}
+              {isStoppingSession ? <Spinner label="Stopping live quiz session" /> : null}
+              {isStoppingSession ? 'Stopping...' : 'Stop Quiz'}
             </button>
           </div>
         ) : null}
       </section>
 
       {loading && !analytics ? (
-        <p className="text-sm text-slate-400">Connecting to live analytics...</p>
+        <div className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner label="Connecting to live analytics" />
+          <span>Connecting to live analytics...</span>
+        </div>
       ) : null}
 
       {error ? (
@@ -1052,8 +1058,8 @@ export default function LiveAnalytics({
 
       {analytics ? (
         <>
-          <section className="mb-6 rounded-3xl border border-slate-800/90 bg-slate-900/70 p-5 md:p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">Active Question Filter</p>
+          <section className="mb-6 rounded-3xl border border-border/90 bg-card/70 p-5 md:p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Active Question Filter</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {questionOptions.map((question) => {
                 const isActive = String(question.id) === String(activeQuestionId);
@@ -1062,7 +1068,7 @@ export default function LiveAnalytics({
                     key={question.id}
                     type="button"
                     onClick={() => setActiveQuestionId(question.id)}
-                    className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${isActive ? 'border-cyan-400/70 bg-cyan-500/20 text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.18)]' : 'border-slate-700 bg-slate-950 text-slate-300 hover:-translate-y-0.5 hover:border-cyan-400/40 hover:text-cyan-200'}`}
+                    className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${isActive ? 'border-cyan-500/70 bg-cyan-500/20 text-cyan-800 shadow-[0_0_20px_rgba(34,211,238,0.18)] dark:text-cyan-100' : 'border-input bg-background text-muted-foreground hover:-translate-y-0.5 hover:border-cyan-500/40 hover:text-cyan-700 dark:hover:text-cyan-200'}`}
                   >
                     {question.label || question.question_title || `Question ${question.id}`}
                   </button>
@@ -1070,9 +1076,9 @@ export default function LiveAnalytics({
               })}
             </div>
 
-            <div className="mt-4 rounded-2xl border border-slate-700/80 bg-slate-950/70 p-4 sm:p-5">
+            <div className="mt-4 rounded-2xl border border-input/80 bg-background/70 p-4 sm:p-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300">Active Question Prompt</p>
-              <h3 className="mt-2 text-sm leading-7 text-slate-100 sm:text-base">
+              <h3 className="mt-2 text-sm leading-7 text-foreground sm:text-base">
                 {activeQuestionPromptText ? (
                   <LatexText text={activeQuestionPromptText} />
                 ) : (
@@ -1084,44 +1090,44 @@ export default function LiveAnalytics({
             {isShortTextQuestion ? (
               <div className="mt-5 rounded-2xl border border-cyan-500/25 bg-cyan-500/10 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100">Live Word Cloud</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-100">Live Word Cloud</p>
                   <button
                     type="button"
                     onClick={generateWordCloud}
                     disabled={isRefreshingSummary}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/12 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-55"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-500/45 bg-cyan-500/12 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/20 dark:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-55"
                   >
                     <span className={isRefreshingSummary ? 'animate-spin' : ''}>☁️</span>
                     Generate Word Cloud
                   </button>
                 </div>
-                <p className="mt-2 text-sm text-slate-300">Generate cloud only for the highlighted question tab.</p>
+                <p className="mt-2 text-sm text-muted-foreground">Generate cloud only for the highlighted question tab.</p>
               </div>
             ) : null}
           </section>
 
-          <section className="mb-6 rounded-3xl border border-slate-800/90 bg-slate-900/70 p-5 md:p-6">
+          <section className="mb-6 rounded-3xl border border-border/90 bg-card/70 p-5 md:p-6">
             {isShortTextQuestion ? (
               <div className="space-y-4">
                 <article className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="text-lg font-semibold text-cyan-100">Word Cloud Output</h3>
+                    <h3 className="text-lg font-semibold text-cyan-700 dark:text-cyan-100">Word Cloud Output</h3>
                     <button
                       type="button"
                       onClick={() => setIsWordCloudMaximized(true)}
                       disabled={!wordCloud.length}
-                      className="px-3 py-1.5 text-xs font-semibold text-cyan-400 bg-slate-900 border border-slate-800 rounded-lg hover:bg-slate-800 transition-all flex items-center space-x-1 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="px-3 py-1.5 text-xs font-semibold text-cyan-400 bg-card border border-border rounded-lg hover:bg-secondary transition-all flex items-center space-x-1 disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       <span>Maximize Cloud</span>
                     </button>
                   </div>
                   {wordCloud.length ? (
-                    <div className="mt-4 overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/80">
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-cyan-400/30 bg-gradient-to-br from-slate-900 via-slate-950 to-[#120b2f] p-1 shadow-[0_20px_60px_rgba(8,145,178,0.22)]">
                       <WordCloudComponent data={wordCloud} width={980} height={460} className="min-h-[280px]" />
                     </div>
                   ) : (
-                    <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                      <p className="text-sm text-slate-400">Click Generate Word Cloud to render this question tab's keywords.</p>
+                    <div className="mt-4 rounded-2xl border border-border bg-background/70 p-4">
+                      <p className="text-sm text-muted-foreground">Click Generate Word Cloud to render this question tab's keywords.</p>
                     </div>
                   )}
                 </article>
@@ -1129,7 +1135,7 @@ export default function LiveAnalytics({
                 <button
                   type="button"
                   onClick={() => setIsResponsesPanelOpen(true)}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-700 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25 dark:text-cyan-100"
                 >
                   See Individual Student Answers
                 </button>
@@ -1140,18 +1146,18 @@ export default function LiveAnalytics({
               <div className="space-y-4">
                 <article className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="text-lg font-semibold text-cyan-100">🧠 Quick AI Class Summary</h3>
+                    <h3 className="text-lg font-semibold text-cyan-700 dark:text-cyan-100">🧠 Quick AI Class Summary</h3>
                     <button
                       type="button"
                       onClick={refreshAiSummary}
                       disabled={isRefreshingSummary}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/12 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-55"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-500/45 bg-cyan-500/12 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/20 dark:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-55"
                     >
-                      <span className={isRefreshingSummary ? 'animate-spin' : ''}>📝</span>
+                      {isRefreshingSummary ? <Spinner label="Generating quick summary" /> : null}
                       Generate Quick Summary
                     </button>
                   </div>
-                  <ul className="mt-4 space-y-2 text-sm text-cyan-50">
+                  <ul className="mt-4 space-y-2 text-sm text-foreground">
                     {activeSummaryPoints.slice(0, 5).map((gist, i) => (
                       <li key={`${activeQuestionId || 'none'}-essay-summary-${i}`} className="flex items-start gap-2">
                         <span className="mt-1 text-cyan-300">•</span>
@@ -1162,27 +1168,27 @@ export default function LiveAnalytics({
                 </article>
 
                 {!staticMode ? (
-                  <article className="rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4">
+                  <article className="rounded-2xl border border-border/90 bg-card/70 p-4">
                     <div className="mb-3">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-cyan-300">INSTRUCTOR ASSISTANT</p>
-                      <h4 className="mt-2 text-lg font-semibold text-white">Ask About Student Answers</h4>
-                      <p className="mt-2 text-xs text-slate-400">Scoped to active tab: {activeQuestion?.label || `Question ${activeQuestionId || '-'}`}</p>
+                      <h4 className="mt-2 text-lg font-semibold text-foreground">Ask About Student Answers</h4>
+                      <p className="mt-2 text-xs text-muted-foreground">Scoped to active tab: {activeQuestion?.label || `Question ${activeQuestionId || '-'}`}</p>
                     </div>
 
                     {visiblePromptHistory.length ? (
-                      <div className="max-h-72 space-y-3 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                      <div className="max-h-72 space-y-3 overflow-y-auto rounded-xl border border-border bg-background/70 p-3">
                         {visiblePromptHistory.map((item) => (
                         <div key={item.id || item.created_at} className="space-y-2">
-                          <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3 text-sm text-slate-200">
+                          <div className="rounded-xl border border-input bg-card/80 p-3 text-sm text-foreground">
                             <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-cyan-300">Instructor Prompt</p>
                             <p>{item.prompt_text}</p>
                           </div>
-                          <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-3 text-sm text-violet-100">
+                          <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-3 text-sm text-violet-800 dark:text-violet-100">
                             <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-violet-300">AI Response</p>
                             {hasPedagogicalSections(item.response_text) ? (() => {
                               const formatted = parsePedagogicalSections(item.response_text);
                               return (
-                                <div className="space-y-3 text-violet-100">
+                                <div className="space-y-3 text-violet-800 dark:text-violet-100">
                                   <div>
                                     <p className="font-semibold text-violet-200">Submission Breakdown:</p>
                                     <p className="whitespace-pre-wrap">{formatted.submissionBreakdown}</p>
@@ -1198,7 +1204,7 @@ export default function LiveAnalytics({
                                 </div>
                               );
                             })() : (
-                              <p className="whitespace-pre-wrap text-violet-100">{stripTechnicalFragments(item.response_text)}</p>
+                              <p className="whitespace-pre-wrap text-violet-800 dark:text-violet-100">{stripTechnicalFragments(item.response_text)}</p>
                             )}
                           </div>
                         </div>
@@ -1212,7 +1218,7 @@ export default function LiveAnalytics({
                         value={assistantPrompt}
                         onChange={(event) => setAssistantPrompt(event.target.value)}
                         placeholder="Ask a classroom question..."
-                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
+                        className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-cyan-400"
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') {
                             event.preventDefault();
@@ -1224,8 +1230,9 @@ export default function LiveAnalytics({
                         type="button"
                         onClick={handleSendPrompt}
                         disabled={isSendingPrompt || !assistantPrompt.trim()}
-                        className="w-full rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 transition-all hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 transition-all hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
                       >
+                        {isSendingPrompt ? <Spinner label="Generating AI response" /> : null}
                         {isSendingPrompt ? 'Generating response...' : 'Send Prompt'}
                       </button>
                       {assistantError ? (
@@ -1238,7 +1245,7 @@ export default function LiveAnalytics({
                 <button
                   type="button"
                   onClick={() => setIsResponsesPanelOpen(true)}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-700 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25 dark:text-cyan-100"
                 >
                   See Individual Student Answers
                 </button>
@@ -1247,13 +1254,13 @@ export default function LiveAnalytics({
 
             {isMultipleChoiceQuestion ? (
               <div className="space-y-4">
-                <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-4">
-                  <h3 className="text-lg font-semibold text-slate-100">Live Answer Distribution</h3>
-                  <p className="mt-2 text-sm text-slate-300">Real-time pie chart for the active multiple-choice question.</p>
+                <div className="rounded-2xl border border-input bg-background/60 p-4">
+                  <h3 className="text-lg font-semibold text-foreground">Live Answer Distribution</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">Real-time pie chart for the active multiple-choice question.</p>
 
                   {choiceMetrics.chartData.length ? (
                     <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_0.8fr] xl:items-start">
-                      <div className="h-[300px] w-full overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/80 p-2">
+                      <div className="h-[300px] w-full overflow-hidden rounded-2xl border border-input bg-background/80 p-2">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
@@ -1290,10 +1297,10 @@ export default function LiveAnalytics({
                         </ResponsiveContainer>
                       </div>
 
-                      <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-sm text-slate-200">
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Summary</p>
-                        <p className="mt-2">Total selections: <span className="font-semibold text-white">{choiceMetrics.totalSelections}</span></p>
-                        <p className="mt-1">Submissions: <span className="font-semibold text-white">{submissionCount}</span></p>
+                      <div className="rounded-xl border border-input bg-card/70 p-3 text-sm text-foreground">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Summary</p>
+                        <p className="mt-2">Total selections: <span className="font-semibold text-foreground">{choiceMetrics.totalSelections}</span></p>
+                        <p className="mt-1">Submissions: <span className="font-semibold text-foreground">{submissionCount}</span></p>
                         <div className="mt-3 space-y-2">
                           {choiceMetrics.chartData.map((entry, index) => (
                             <div key={`legend-${entry.choice}`} className="flex items-center justify-between text-xs">
@@ -1311,8 +1318,8 @@ export default function LiveAnalytics({
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p className="text-sm text-slate-400">No choice selections received yet for this question.</p>
+                    <div className="mt-4 rounded-xl border border-input bg-card/60 p-4">
+                      <p className="text-sm text-muted-foreground">No choice selections received yet for this question.</p>
                     </div>
                   )}
                 </div>
@@ -1320,7 +1327,7 @@ export default function LiveAnalytics({
                 <button
                   type="button"
                   onClick={() => setIsResponsesPanelOpen(true)}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-700 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25 dark:text-cyan-100"
                 >
                   See Individual Student Answers
                 </button>
@@ -1329,13 +1336,13 @@ export default function LiveAnalytics({
 
             {isTrueFalseQuestion ? (
               <div className="space-y-4">
-                <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-4">
-                  <h3 className="text-lg font-semibold text-slate-100">Live True/False Distribution</h3>
-                  <p className="mt-2 text-sm text-slate-300">Real-time agreement split for the active True/False question.</p>
+                <div className="rounded-2xl border border-input bg-background/60 p-4">
+                  <h3 className="text-lg font-semibold text-foreground">Live True/False Distribution</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">Real-time agreement split for the active True/False question.</p>
 
                   {trueFalseMetrics.totalSelections > 0 ? (
                     <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_0.8fr] xl:items-start">
-                      <div className="h-[300px] w-full overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/80 p-2">
+                      <div className="h-[300px] w-full overflow-hidden rounded-2xl border border-input bg-background/80 p-2">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
@@ -1372,10 +1379,10 @@ export default function LiveAnalytics({
                         </ResponsiveContainer>
                       </div>
 
-                      <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-sm text-slate-200">
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Summary</p>
-                        <p className="mt-2">Total selections: <span className="font-semibold text-white">{trueFalseMetrics.totalSelections}</span></p>
-                        <p className="mt-1">Submissions: <span className="font-semibold text-white">{submissionCount}</span></p>
+                      <div className="rounded-xl border border-input bg-card/70 p-3 text-sm text-foreground">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Summary</p>
+                        <p className="mt-2">Total selections: <span className="font-semibold text-foreground">{trueFalseMetrics.totalSelections}</span></p>
+                        <p className="mt-1">Submissions: <span className="font-semibold text-foreground">{submissionCount}</span></p>
                         <div className="mt-3 space-y-2">
                           {trueFalseMetrics.chartData.map((entry) => (
                             <div key={`tf-legend-${entry.name}`} className="flex items-center justify-between text-xs">
@@ -1393,8 +1400,8 @@ export default function LiveAnalytics({
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p className="text-sm text-slate-400">No True/False selections received yet for this question.</p>
+                    <div className="mt-4 rounded-xl border border-input bg-card/60 p-4">
+                      <p className="text-sm text-muted-foreground">No True/False selections received yet for this question.</p>
                     </div>
                   )}
                 </div>
@@ -1402,7 +1409,7 @@ export default function LiveAnalytics({
                 <button
                   type="button"
                   onClick={() => setIsResponsesPanelOpen(true)}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-700 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25 dark:text-cyan-100"
                 >
                   See Individual Student Answers
                 </button>
@@ -1411,9 +1418,9 @@ export default function LiveAnalytics({
 
             {isMatchingQuestion ? (
               <div className="space-y-4">
-                <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-4">
-                  <h3 className="text-lg font-semibold text-slate-100">Matching Pair Breakdown</h3>
-                  <p className="mt-2 text-sm text-slate-300">Each segment shows one left-side prompt and the real-time distribution of matching selections.</p>
+                <div className="rounded-2xl border border-input bg-background/60 p-4">
+                  <h3 className="text-lg font-semibold text-foreground">Matching Pair Breakdown</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">Each segment shows one left-side prompt and the real-time distribution of matching selections.</p>
 
                   {matchingSummary?.rows?.length ? (
                     <div className="mt-4 grid grid-cols-1 gap-4">
@@ -1425,13 +1432,13 @@ export default function LiveAnalytics({
                         const correctedPercent = clampPercent(row.correct_percentage);
 
                         return (
-                          <article key={`matching-row-${row.left_id}`} className="rounded-2xl border border-slate-700 bg-slate-900/55 p-4">
+                          <article key={`matching-row-${row.left_id}`} className="rounded-2xl border border-input bg-card/55 p-4">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                               <div className="min-w-0 flex-1">
                                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300">Match {rowIndex + 1} • {row.left_id}</p>
-                                <h4 className="mt-2 text-sm leading-7 text-slate-100 sm:text-base"><LatexText text={row.left_text || row.left_id} /></h4>
+                                <h4 className="mt-2 text-sm leading-7 text-foreground sm:text-base"><LatexText text={row.left_text || row.left_id} /></h4>
                                 {row.left_image_url ? (
-                                  <div className="mt-3 overflow-hidden rounded-lg border border-slate-700 bg-slate-900/60 p-2">
+                                  <div className="mt-3 overflow-hidden rounded-lg border border-input bg-card/60 p-2">
                                     <img
                                       src={row.left_image_url}
                                       alt={`${row.left_id} prompt`}
@@ -1444,7 +1451,7 @@ export default function LiveAnalytics({
                               <div className="rounded-xl border border-emerald-400/35 bg-emerald-500/10 px-3 py-2 text-right">
                                 <p className="text-[10px] uppercase tracking-[0.16em] text-emerald-300">Accuracy</p>
                                 <p className="mt-1 text-lg font-semibold text-emerald-200">{correctedPercent.toFixed(1)}% Correct</p>
-                                <p className="text-xs text-slate-300">{row.correct_count || 0}/{matchingSummary.totalSubmissions || 0} students</p>
+                                <p className="text-xs text-muted-foreground">{row.correct_count || 0}/{matchingSummary.totalSubmissions || 0} students</p>
                               </div>
                             </div>
 
@@ -1453,18 +1460,18 @@ export default function LiveAnalytics({
                                 const percent = clampPercent(entry.percentage);
                                 const isTopDistractor = !entry.is_correct && entry.right_id === topDistractorId;
                                 return (
-                                  <div key={`matching-bar-${row.left_id}-${entry.right_id}`} className="rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+                                  <div key={`matching-bar-${row.left_id}-${entry.right_id}`} className="rounded-xl border border-input bg-background/70 p-3">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                       <div className="min-w-0">
                                         <p className={`text-xs font-semibold ${entry.is_correct ? 'text-emerald-300' : isTopDistractor ? 'text-amber-300' : 'text-rose-300'}`}>
                                           {entry.right_id}{entry.is_correct ? ' • Correct' : isTopDistractor ? ' • Top Distractor' : ' • Distractor'}
                                         </p>
-                                        <p className="mt-1 text-xs text-slate-300"><LatexText text={entry.text || entry.right_id} /></p>
+                                        <p className="mt-1 text-xs text-muted-foreground"><LatexText text={entry.text || entry.right_id} /></p>
                                       </div>
-                                      <p className="text-xs font-semibold text-slate-200">{percent.toFixed(1)}% ({entry.count || 0})</p>
+                                      <p className="text-xs font-semibold text-foreground">{percent.toFixed(1)}% ({entry.count || 0})</p>
                                     </div>
 
-                                    <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-slate-800">
+                                    <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-secondary">
                                       <div
                                         className={`h-full rounded-full bg-gradient-to-r ${matchingBarColor({ isCorrect: entry.is_correct, isTopDistractor })}`}
                                         style={{ width: `${percent}%` }}
@@ -1472,7 +1479,7 @@ export default function LiveAnalytics({
                                     </div>
 
                                     {entry.image_url ? (
-                                      <div className="mt-2 overflow-hidden rounded-lg border border-slate-700 bg-slate-900/60 p-2">
+                                      <div className="mt-2 overflow-hidden rounded-lg border border-input bg-card/60 p-2">
                                         <img
                                           src={entry.image_url}
                                           alt={`${entry.right_id} option`}
@@ -1488,14 +1495,14 @@ export default function LiveAnalytics({
                         );
                       })}
 
-                      <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-sm text-slate-200">
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Summary</p>
-                        <p className="mt-2">Submissions: <span className="font-semibold text-white">{matchingSummary.totalSubmissions || 0}</span></p>
+                      <div className="rounded-xl border border-input bg-card/70 p-3 text-sm text-foreground">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Summary</p>
+                        <p className="mt-2">Submissions: <span className="font-semibold text-foreground">{matchingSummary.totalSubmissions || 0}</span></p>
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p className="text-sm text-slate-400">No matching responses received yet for this question.</p>
+                    <div className="mt-4 rounded-xl border border-input bg-card/60 p-4">
+                      <p className="text-sm text-muted-foreground">No matching responses received yet for this question.</p>
                     </div>
                   )}
                 </div>
@@ -1503,7 +1510,7 @@ export default function LiveAnalytics({
                 <button
                   type="button"
                   onClick={() => setIsResponsesPanelOpen(true)}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/45 bg-cyan-500/15 px-4 py-3 text-sm font-semibold tracking-[0.04em] text-cyan-700 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/25 dark:text-cyan-100"
                 >
                   See Individual Student Answers
                 </button>
@@ -1513,18 +1520,18 @@ export default function LiveAnalytics({
             {(isShortTextQuestion || isMultipleChoiceQuestion || isTrueFalseQuestion || isMatchingQuestion) ? (
               <article className="mt-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-lg font-semibold text-cyan-100">🧠 Quick AI Class Summary</h3>
+                  <h3 className="text-lg font-semibold text-cyan-700 dark:text-cyan-100">🧠 Quick AI Class Summary</h3>
                   <button
                     type="button"
                     onClick={refreshAiSummary}
                     disabled={isRefreshingSummary}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/45 bg-cyan-500/12 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-55"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-500/45 bg-cyan-500/12 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700 transition-all hover:-translate-y-0.5 hover:bg-cyan-500/20 dark:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-55"
                   >
-                    <span className={isRefreshingSummary ? 'animate-spin' : ''}>📝</span>
+                    {isRefreshingSummary ? <Spinner label="Generating quick summary" /> : null}
                     Generate Quick Summary
                   </button>
                 </div>
-                <ul className="mt-4 space-y-2 text-sm text-cyan-50">
+                <ul className="mt-4 space-y-2 text-sm text-foreground">
                   {activeSummaryPoints.slice(0, 5).map((gist, i) => (
                     <li key={`${activeQuestionId || 'none'}-summary-${i}`} className="flex items-start gap-2">
                       <span className="mt-1 text-cyan-300">•</span>
@@ -1536,34 +1543,34 @@ export default function LiveAnalytics({
             ) : null}
 
             {!isShortTextQuestion && !isEssayQuestion && !isMultipleChoiceQuestion && !isTrueFalseQuestion && !isMatchingQuestion ? (
-              <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-4 text-sm text-slate-300">
+              <div className="rounded-2xl border border-input bg-background/60 p-4 text-sm text-muted-foreground">
                 Select a question to view the question-type specific analytics modules.
               </div>
             ) : null}
           </section>
 
           {!staticMode && (isShortTextQuestion || isMultipleChoiceQuestion || isTrueFalseQuestion || isMatchingQuestion) ? (
-            <section className="mb-6 rounded-3xl border border-slate-800/90 bg-slate-900/70 p-5 md:p-6">
+            <section className="mb-6 rounded-3xl border border-border/90 bg-card/70 p-5 md:p-6">
               <div className="mb-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-cyan-300">INSTRUCTOR ASSISTANT</p>
-                <h4 className="mt-2 text-lg font-semibold text-white">Ask About Student Answers</h4>
-                <p className="mt-2 text-xs text-slate-400">Scoped to active tab: {activeQuestion?.label || `Question ${activeQuestionId || '-'}`}</p>
+                <h4 className="mt-2 text-lg font-semibold text-foreground">Ask About Student Answers</h4>
+                <p className="mt-2 text-xs text-muted-foreground">Scoped to active tab: {activeQuestion?.label || `Question ${activeQuestionId || '-'}`}</p>
               </div>
 
               {visiblePromptHistory.length ? (
-                <div className="max-h-72 space-y-3 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                <div className="max-h-72 space-y-3 overflow-y-auto rounded-xl border border-border bg-background/70 p-3">
                   {visiblePromptHistory.map((item) => (
                   <div key={item.id || item.created_at} className="space-y-2">
-                    <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3 text-sm text-slate-200">
+                    <div className="rounded-xl border border-input bg-card/80 p-3 text-sm text-foreground">
                       <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-cyan-300">Instructor Prompt</p>
                       <p>{item.prompt_text}</p>
                     </div>
-                    <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-3 text-sm text-violet-100">
+                    <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-3 text-sm text-violet-800 dark:text-violet-100">
                       <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-violet-300">AI Response</p>
                       {hasPedagogicalSections(item.response_text) ? (() => {
                         const formatted = parsePedagogicalSections(item.response_text);
                         return (
-                          <div className="space-y-3 text-violet-100">
+                          <div className="space-y-3 text-violet-800 dark:text-violet-100">
                             <div>
                               <p className="font-semibold text-violet-200">Submission Breakdown:</p>
                               <p className="whitespace-pre-wrap">{formatted.submissionBreakdown}</p>
@@ -1579,7 +1586,7 @@ export default function LiveAnalytics({
                           </div>
                         );
                       })() : (
-                        <p className="whitespace-pre-wrap text-violet-100">{stripTechnicalFragments(item.response_text)}</p>
+                        <p className="whitespace-pre-wrap text-violet-800 dark:text-violet-100">{stripTechnicalFragments(item.response_text)}</p>
                       )}
                     </div>
                   </div>
@@ -1593,7 +1600,7 @@ export default function LiveAnalytics({
                   value={assistantPrompt}
                   onChange={(event) => setAssistantPrompt(event.target.value)}
                   placeholder="Ask a classroom question..."
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
+                  className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-cyan-400"
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') {
                       event.preventDefault();
@@ -1605,8 +1612,9 @@ export default function LiveAnalytics({
                   type="button"
                   onClick={handleSendPrompt}
                   disabled={isSendingPrompt || !assistantPrompt.trim()}
-                  className="w-full rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 transition-all hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 transition-all hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
                 >
+                  {isSendingPrompt ? <Spinner label="Generating AI response" /> : null}
                   {isSendingPrompt ? 'Generating response...' : 'Send Prompt'}
                 </button>
                 {assistantError ? (
@@ -1619,67 +1627,50 @@ export default function LiveAnalytics({
         </>
       ) : null}
 
-      {isResponsesPanelOpen ? (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setIsResponsesPanelOpen(false);
-            }
-          }}
-        >
-          <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-slate-900 border-l border-slate-800 shadow-2xl shadow-black/50 flex flex-col">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-100">Individual Submissions</h3>
-                <p className="text-xs text-slate-400 mt-1">Updates every 4 seconds from the live analytics feed.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsResponsesPanelOpen(false)}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-300 transition-all hover:border-rose-400/50 hover:text-rose-300"
-              >
-                Close
-              </button>
-            </div>
+      <Dialog open={isResponsesPanelOpen} onOpenChange={setIsResponsesPanelOpen}>
+        <DialogContent className="h-[90vh] w-[95vw] max-w-4xl overflow-hidden p-0">
+          <DialogHeader className="border-b border-border px-6 py-5">
+            <DialogTitle>Individual Submissions</DialogTitle>
+            <p className="text-xs text-muted-foreground">Updates every 4 seconds from the live analytics feed.</p>
+          </DialogHeader>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-3">
+          <div className="flex-1 overflow-y-auto p-6 space-y-3">
               {individualSubmissions.length ? individualSubmissions.map((submission) => {
                 const submittedTime = submission.submitted_at ? new Date(submission.submitted_at).toLocaleTimeString() : 'Unknown time';
                 const isExpanded = Boolean(expandedRows[submission.submission_id]);
 
                 return (
-                  <div key={submission.submission_id} className="rounded-2xl border border-slate-800 bg-slate-950/50">
+                  <div key={submission.submission_id} className="rounded-2xl border border-border bg-background/50">
                     <button
                       type="button"
                       onClick={() => toggleExpandedRow(submission.submission_id)}
                       className="w-full px-4 py-3 text-left flex flex-wrap items-center justify-between gap-2"
                     >
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-bold text-slate-100">{submission.student_name || 'Anonymous Student'}</span>
-                        <span className="text-[10px] uppercase tracking-[0.18em] text-slate-400 border border-slate-700 rounded-full px-2 py-0.5">{submittedTime}</span>
+                        <span className="text-sm font-bold text-foreground">{submission.student_name || 'Anonymous Student'}</span>
+                        <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground border border-input rounded-full px-2 py-0.5">{submittedTime}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[11px] uppercase tracking-[0.18em] text-cyan-300 border border-cyan-500/30 bg-cyan-500/10 rounded-full px-2 py-0.5">Choice: {submission.choice_badge || 'N/A'}</span>
-                        <span className="text-slate-500 text-xs">{isExpanded ? '▲' : '▼'}</span>
+                        {isExpanded ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
                       </div>
                     </button>
 
                     {isExpanded ? (
                       <div className="px-4 pb-4">
-                        <div className="bg-slate-950/60 p-3 rounded-xl max-h-72 overflow-y-auto space-y-3">
+                        <div className="bg-background/60 p-3 rounded-xl max-h-72 overflow-y-auto space-y-3">
                           {Array.isArray(submission.answers) && submission.answers.length > 0 ? submission.answers.map((ans, index) => (
-                            <div key={`${submission.submission_id}-${ans.question_id || index}`} className="p-3 rounded-xl border border-slate-800 bg-slate-900/70">
-                              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                            <div key={`${submission.submission_id}-${ans.question_id || index}`} className="p-3 rounded-xl border border-border bg-card/70">
+                              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                                 Question: {ans.question_title || 'Unknown Question'}
                               </p>
-                              <p className="mt-2 text-sm font-medium text-cyan-300 bg-slate-950 p-3 rounded-lg border border-slate-800/60">
+                              <p className="mt-2 text-sm font-medium text-cyan-300 bg-background p-3 rounded-lg border border-border/60">
                                 Student Response:{' '}
-                                <span className="text-slate-100">{String(ans.answer_text || '').trim() || 'No response provided'}</span>
+                                <span className="text-foreground">{String(ans.answer_text || '').trim() || 'No response provided'}</span>
                               </p>
                             </div>
                           )) : (
-                            <div className="bg-slate-950/60 p-3 rounded-xl text-slate-300 text-sm italic whitespace-pre-wrap">
+                            <div className="bg-background/60 p-3 rounded-xl text-muted-foreground text-sm italic whitespace-pre-wrap">
                               {submission.response_text}
                             </div>
                           )}
@@ -1689,62 +1680,32 @@ export default function LiveAnalytics({
                   </div>
                 );
               }) : (
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-400">
+                <div className="rounded-xl border border-border bg-background/60 p-4 text-sm text-muted-foreground">
                   No individual submissions have arrived yet.
                 </div>
               )}
             </div>
+        </DialogContent>
+      </Dialog>
 
-            <div className="border-t border-slate-800 px-6 py-4">
-              <button
-                type="button"
-                onClick={() => setIsResponsesPanelOpen(false)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-200 transition-all hover:bg-slate-700"
-              >
-                Close Viewer
-              </button>
-            </div>
+      <Dialog open={isWordCloudMaximized} onOpenChange={setIsWordCloudMaximized}>
+        <DialogContent className="h-[95vh] max-w-[95vw] p-4 sm:p-6">
+          <div className="h-full w-full">
+            {wordCloud.length ? (
+              <WordCloudComponent
+                data={wordCloud}
+                width={maximizedCloudWidth}
+                height={maximizedCloudHeight}
+                className="h-full w-full"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center rounded-2xl border border-border bg-background/70">
+                <p className="text-sm text-muted-foreground">Generate a word cloud first to view it in expanded mode.</p>
+              </div>
+            )}
           </div>
-        </div>
-      ) : null}
-
-      {isWordCloudMaximized && (
-        <div
-          onClick={() => setIsWordCloudMaximized(false)}
-          className="fixed inset-0 z-[999] bg-slate-950/95 backdrop-blur-md"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Expanded word cloud"
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            className="relative h-screen w-screen p-4 sm:p-6"
-          >
-            <button
-              type="button"
-              onClick={() => setIsWordCloudMaximized(false)}
-              className="absolute right-4 top-4 z-10 rounded-md border border-slate-700 bg-slate-950/90 px-3 py-1 text-sm text-slate-300 transition hover:text-white"
-            >
-              Minimize
-            </button>
-
-            <div className="h-full w-full">
-              {wordCloud.length ? (
-                <WordCloudComponent
-                  data={wordCloud}
-                  width={maximizedCloudWidth}
-                  height={maximizedCloudHeight}
-                  className="h-full w-full"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center rounded-2xl border border-slate-800 bg-slate-950/70">
-                  <p className="text-sm text-slate-400">Generate a word cloud first to view it in expanded mode.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

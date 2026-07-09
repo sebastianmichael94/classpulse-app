@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from './apiClient';
+import { Button } from './components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
+import { Input } from './components/ui/input';
+import { Label } from './components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
 
 const SECURITY_QUESTIONS = [
   { value: 'first_pet', label: "What was your first pet's name?" },
@@ -66,106 +71,108 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-10 flex items-center justify-center">
-      <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl">
-        <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">ClassPulse Identity Hub</p>
-        <h1 className="mt-3 text-3xl font-semibold text-white">Create account</h1>
-        <p className="mt-2 text-sm text-slate-400">Student registration only.</p>
+    <div className="min-h-screen px-4 py-10 flex items-center justify-center">
+      <Card className="w-full max-w-xl border-border/80 bg-card/95 shadow-2xl backdrop-blur">
+        <CardHeader>
+          <p className="text-xs uppercase tracking-[0.35em] text-primary">ClassPulse Identity Hub</p>
+          <CardTitle className="mt-2 text-3xl">Create account</CardTitle>
+          <CardDescription>Student registration only.</CardDescription>
+        </CardHeader>
 
-        <form onSubmit={handleRegister} className="mt-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <input
+        <CardContent>
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Input
               name="firstName"
               value={formData.firstName}
               onChange={handleChange}
               placeholder="First name"
-              className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="h-11"
               required
-            />
-            <input
+              />
+              <Input
               name="lastName"
               value={formData.lastName}
               onChange={handleChange}
               placeholder="Last name"
-              className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="h-11"
+              required
+              />
+            </div>
+
+            <Input
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              placeholder="Username"
+              className="h-11"
               required
             />
-          </div>
 
-          <input
-            name="username"
-            value={formData.username}
-            onChange={handleChange}
-            placeholder="Username"
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
-            required
-          />
-
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="Email"
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
-            required
-          />
-
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            placeholder="Password"
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
-            required
-          />
-
-          <label className="block text-sm text-slate-300">
-            Security question
-            <select
-              name="securityQuestion"
-              value={formData.securityQuestion}
+            <Input
+              type="email"
+              name="email"
+              value={formData.email}
               onChange={handleChange}
-              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              placeholder="Email"
+              className="h-11"
               required
-            >
-              {SECURITY_QUESTIONS.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
 
-          <input
-            type="text"
-            name="securityAnswer"
-            value={formData.securityAnswer}
-            onChange={handleChange}
-            placeholder="Security answer"
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
-            required
-          />
+            <Input
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="Password"
+              className="h-11"
+              required
+            />
 
-          {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+            <Label className="block text-sm text-muted-foreground">
+              Security question
+              <Select
+                value={formData.securityQuestion}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, securityQuestion: value }))}
+              >
+                <SelectTrigger className="mt-2 h-11">
+                  <SelectValue placeholder="Select a security question" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SECURITY_QUESTIONS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Label>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting ? 'Creating account...' : 'Register as Student'}
-          </button>
-        </form>
+            <Input
+              type="text"
+              name="securityAnswer"
+              value={formData.securityAnswer}
+              onChange={handleChange}
+              placeholder="Security answer"
+              className="h-11"
+              required
+            />
 
-        <p className="mt-5 text-sm text-slate-400">
-          Already have an account?{' '}
-          <Link to="/login" className="text-cyan-300 hover:text-cyan-200 font-semibold">
-            Sign in
-          </Link>
-        </p>
-      </div>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+            <Button type="submit" disabled={isSubmitting} className="h-11 w-full text-sm font-semibold">
+              {isSubmitting ? 'Creating account...' : 'Register as Student'}
+            </Button>
+          </form>
+
+          <p className="mt-5 text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <Link to="/login" className="text-primary hover:text-primary/90 font-semibold">
+              Sign in
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,39 +1,108 @@
 @import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@custom-variant dark (&:is(.dark *));
 
-/* Explicit Global Resets to clear layout clashes */
-*, ::before, ::after {
-  box-sizing: border-box;
-  border-width: 0;
-  border-style: solid;
-  border-color: #1e293b; /* slate-800 */
+:root {
+  --background: 210 40% 98%;
+  --foreground: 222.2 47.4% 11.2%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 47.4% 11.2%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 47.4% 11.2%;
+  --primary: 192 95% 38%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 220 16% 34%;
+  --accent: 191 91% 36%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84.2% 60.2%;
+  --border: 215 24% 84%;
+  --input: 215 24% 80%;
+  --ring: 191 91% 36%;
+  --radius: 0.75rem;
 }
 
-body {
-  margin: 0;
-  background-color: #020617 !important;
-  color: #f8fafc !important;
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-  letter-spacing: -0.01em;
+.dark {
+  --background: 224 45% 8%;
+  --foreground: 213 31% 91%;
+  --card: 224 39% 11%;
+  --card-foreground: 213 31% 91%;
+  --popover: 224 39% 11%;
+  --popover-foreground: 213 31% 91%;
+  --primary: 187 95% 43%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 220 28% 17%;
+  --secondary-foreground: 213 31% 91%;
+  --muted: 218 25% 18%;
+  --muted-foreground: 215 20% 70%;
+  --accent: 188 95% 42%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 62.8% 30.6%;
+  --border: 217 20% 24%;
+  --input: 217 20% 24%;
+  --ring: 187 95% 43%;
 }
 
-/* Ensure form controls capture our custom Tailwind structures instead of raw HTML defaults */
-input, select, textarea {
-  background-color: #020617 !important;
-  border: 1px solid #1e293b !important;
-  color: #f8fafc !important;
-  border-radius: 0.75rem !important; /* Smooth rounded corners */
-  padding: 0.75rem 1rem !important;
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-input:focus, select:focus, textarea:focus {
-  outline: 2px solid #4f46e5 !important; /* Crisp indigo focus indicator */
-  border-color: transparent !important;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 12% 10%, hsl(var(--primary) / 0.2), transparent 28%),
+      radial-gradient(circle at 87% 14%, hsl(var(--accent) / 0.15), transparent 30%),
+      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background)) 100%);
+    font-family: "Sora", "Segoe UI", "Trebuchet MS", sans-serif;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+  }
 }
 
-button {
-  cursor: pointer;
+@layer components {
+  .cp-top-nav {
+    @apply sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur;
+  }
+
+  .cp-app-shell {
+    @apply min-h-screen bg-background text-foreground;
+  }
+
+  .cp-surface {
+    @apply rounded-2xl border bg-card/90 text-card-foreground shadow-xl;
+  }
+
+  .cp-section-title {
+    @apply text-xs uppercase tracking-[0.3em] text-muted-foreground;
+  }
 }

@@ -17,7 +17,7 @@ function getWordTierClasses(weight) {
   if (weight >= 0.8) return 'text-3xl font-extrabold text-cyan-400';
   if (weight >= 0.6) return 'text-2xl font-bold text-cyan-300';
   if (weight >= 0.4) return 'text-xl font-semibold text-cyan-200';
-  if (weight >= 0.2) return 'text-base font-medium text-slate-300';
+  if (weight >= 0.2) return 'text-base font-medium text-muted-foreground';
   return 'text-sm font-medium text-slate-500';
 }
 
@@ -125,26 +125,26 @@ export default function StudentScorecard({ score, totalPoints, studentName, quiz
       <p className="mt-2 text-sm text-slate-500">Thank you! Your responses have been successfully sent to the instructor.</p>
       
       <div className="my-6 border-y-2 border-slate-100 py-4 text-left space-y-2 text-sm font-medium text-slate-700">
-        <p><span className="text-slate-400">Quiz:</span> <span className="text-slate-900 font-bold">{quizTitle || 'Default Sandbox Quiz'}</span></p>
-        <p><span className="text-slate-400">Name:</span> <span className="text-slate-900 font-bold">{studentName || 'Anonymous Identity'}</span></p>
+        <p><span className="text-muted-foreground">Quiz:</span> <span className="text-slate-900 font-bold">{quizTitle || 'Default Sandbox Quiz'}</span></p>
+        <p><span className="text-muted-foreground">Name:</span> <span className="text-slate-900 font-bold">{studentName || 'Anonymous Identity'}</span></p>
       </div>
 
       {sharedAnalytics ? (
-        <div className="mt-6 rounded-xl border border-slate-700 bg-slate-950 p-4 text-left">
+        <div className="mt-6 rounded-xl border border-input bg-background p-4 text-left">
           <p className="text-[10px] uppercase tracking-[0.25em] text-cyan-300">Shared Analytics Canvas</p>
-          <h4 className="mt-2 text-base font-semibold text-white">Live instructor insights</h4>
+          <h4 className="mt-2 text-base font-semibold text-foreground">Live instructor insights</h4>
 
           <div className="mt-3 rounded-xl border border-violet-500/30 bg-violet-500/10 p-3">
             <p className="text-xs font-semibold text-violet-200">✨ AI Real-Time Response Gist</p>
-            <ul className="mt-2 space-y-1 text-xs text-slate-200">
+            <ul className="mt-2 space-y-1 text-xs text-foreground">
               {sharedGists.map((gist, index) => (
                 <li key={`${gist}-${index}`}>• {gist}</li>
               ))}
             </ul>
           </div>
 
-          <div className="mt-3 rounded-xl border border-slate-800 bg-slate-900/80 p-3">
-            <p className="text-xs font-semibold text-slate-300">Answer Word Cloud</p>
+          <div className="mt-3 rounded-xl border border-border bg-card/80 p-3">
+            <p className="text-xs font-semibold text-muted-foreground">Answer Word Cloud</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {sharedWordCloud.length ? sharedWordCloud.map((item) => (
                 <span key={`${item.word}-${item.count}`} className={item.tierClasses}>{item.word}</span>
